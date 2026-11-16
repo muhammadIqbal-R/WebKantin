@@ -1,0 +1,237 @@
+// SQL owns CHECK constraints, RLS, grants, triggers, Auth FK and publication.
+// Do not use prisma db push to replace the reviewed SQL baseline.
+generator client {
+  provider = "prisma-client"
+  output = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+datasource db {
+  provider = "postgresql"
+  schemas = ["public", "app_private"]
+}
+enum OrderType {
+  dine_in
+  take_away
+  @@map("order_type")
+  @@schema("public")
+}
+enum OrderStatus {
+  menunggu_bayar
+  menunggu_konfirmasi
+  diproses
+  siap
+  selesai
+  dibatalkan
+  @@map("order_status")
+  @@schema("public")
+}
+enum PaymentStatus {
+  unpaid
+  pending_confirmation
+  paid
+  rejected
+  @@map("payment_status")
+  @@schema("public")
+}
+enum PaymentMethod {
+  qris_static
+  @@map("payment_method")
+  @@schema("public")
+}
+enum AppRole {
+  admin_pengelola
+  tenant
+  @@map("app_role")
+  @@schema("app_private")
+}
+model Outlet {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name String @db.VarChar(100)
+  location String @db.VarChar(300)
+  floorMapUrl String? @map("floor_map_url") @db.VarChar(2048)
+  isActive Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  tenants Tenant[]
+  @@map("outlets")
+  @@schema("public")
+}
+model Tenant {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  outletId String @map("outlet_id") @db.Uuid
+  name String @db.VarChar(100)
+  description String @default("") @db.VarChar(1000)
+  qrisImageUrl String? @map("qris_image_url") @db.VarChar(2048)
+  qrisMerchantName String? @map("qris_merchant_name") @db.VarChar(150)
+  isActive Boolean @default(false) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  outlet Outlet @relation(fields:[outletId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  menus Menu[]
+  orders Order[]
+  users User[]
+  audits AuditEvent[]
+  @@index([outletId,id], map:"tenants_outlet_idx")
+  @@map("tenants")
+  @@schema("public")
+}
+model Menu {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  name String @db.VarChar(100)
+  price Int
+  photoUrl String? @map("photo_url") @db.VarChar(2048)
+  isAvailable Boolean @default(true) @map("is_available")
+  isActive Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  items OrderItem[]
+  @@unique([id,tenantId])
+  @@index([tenantId,id],map:"menus_tenant_idx")
+  @@map("menus")
+  @@schema("public")
+}
+model User {
+  // auth.users is managed by Supabase Auth, not by Prisma. The SQL baseline owns its FK.
+  id String @id @db.Uuid
+  role AppRole
+  tenantId String? @map("tenant_id") @db.Uuid
+  email String @unique @db.VarChar(320)
+  isActive Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  tenant Tenant? @relation(fields:[tenantId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  confirmedOrders Order[]
+  orderEvents OrderEvent[]
+  audits AuditEvent[]
+  @@index([tenantId],map:"users_tenant_idx")
+  @@map("users")
+  @@schema("app_private")
+}
+model Order {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderCode String @unique @default(dbgenerated("app_private.new_order_code()")) @map("order_code") @db.VarChar(13)
+  customerName String @map("customer_name") @db.VarChar(100)
+  orderType OrderType @map("order_type")
+  tenantId String @map("tenant_id") @db.Uuid
+  total Int
+  status OrderStatus @default(menunggu_bayar)
+  paymentStatus PaymentStatus @default(unpaid) @map("payment_status")
+  paymentMethod PaymentMethod @default(qris_static) @map("payment_method")
+  paymentConfirmedBy String? @map("payment_confirmed_by") @db.Uuid
+  paymentConfirmedAt DateTime? @map("payment_confirmed_at") @db.Timestamptz(6)
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  confirmer User? @relation(fields:[paymentConfirmedBy],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  items OrderItem[]
+  checkoutLinks CheckoutOrder[]
+  accessGrants OrderAccessGrant[]
+  paymentSnapshots OrderPaymentSnapshot[]
+  events OrderEvent[]
+  @@unique([id,tenantId])
+  @@index([tenantId,createdAt,id],map:"orders_tenant_created_idx")
+  @@index([tenantId,paymentStatus,createdAt,id],map:"orders_tenant_payment_idx")
+  @@map("orders")
+  @@schema("public")
+}
+model OrderItem {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId String @map("order_id") @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  menuId String @map("menu_id") @db.Uuid
+  menuName String @map("menu_name") @db.VarChar(100)
+  qty Int
+  unitPrice Int @map("unit_price")
+  subtotal Int
+  order Order @relation(fields:[orderId,tenantId],references:[id,tenantId],onDelete:Restrict,onUpdate:NoAction)
+  menu Menu @relation(fields:[menuId,tenantId],references:[id,tenantId],onDelete:Restrict,onUpdate:NoAction)
+  @@unique([orderId,menuId])
+  @@index([tenantId,orderId],map:"order_items_tenant_idx")
+  @@map("order_items")
+  @@schema("public")
+}
+model CheckoutRequest {
+  idempotencyKey String @id @map("idempotency_key") @db.Uuid
+  requestHash String @map("request_hash") @db.VarChar(64)
+  responseCiphertext String? @map("response_ciphertext")
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  expiresAt DateTime @default(dbgenerated("(now() + '24:00:00'::interval)")) @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  orders CheckoutOrder[]
+  @@index([expiresAt],map:"checkout_requests_expiry_idx")
+  @@map("checkout_requests")
+  @@schema("app_private")
+}
+model CheckoutOrder {
+  orderId String @id @map("order_id") @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  idempotencyKey String @map("idempotency_key") @db.Uuid
+  order Order @relation(fields:[orderId,tenantId],references:[id,tenantId],onDelete:Restrict,onUpdate:NoAction)
+  checkout CheckoutRequest @relation(fields:[idempotencyKey],references:[idempotencyKey],onDelete:Cascade,onUpdate:NoAction)
+  @@unique([idempotencyKey,tenantId])
+  @@index([idempotencyKey],map:"checkout_orders_key_idx")
+  @@map("checkout_orders")
+  @@schema("app_private")
+}
+model OrderAccessGrant {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId String @unique @map("order_id") @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  tokenDigest String @unique @map("token_digest") @db.VarChar(64)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  order Order @relation(fields:[orderId,tenantId],references:[id,tenantId],onDelete:Restrict,onUpdate:NoAction)
+  @@map("order_access_grants")
+  @@schema("app_private")
+}
+model OrderPaymentSnapshot {
+  orderId String @id @map("order_id") @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  qrisImageUrl String @map("qris_image_url") @db.VarChar(2048)
+  merchantName String @map("merchant_name") @db.VarChar(150)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  order Order @relation(fields:[orderId,tenantId],references:[id,tenantId],onDelete:Restrict,onUpdate:NoAction)
+  @@map("order_payment_snapshots")
+  @@schema("app_private")
+}
+model OrderEvent {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId String @map("order_id") @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  actorUserId String? @map("actor_user_id") @db.Uuid
+  actorKind String @map("actor_kind") @db.VarChar(20)
+  action String @db.VarChar(40)
+  beforeState Json? @map("before_state") @db.JsonB
+  afterState Json @map("after_state") @db.JsonB
+  reason String? @db.VarChar(300)
+  requestId String @map("request_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  order Order @relation(fields:[orderId,tenantId],references:[id,tenantId],onDelete:Restrict,onUpdate:NoAction)
+  actor User? @relation(fields:[actorUserId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  @@index([tenantId,createdAt],map:"order_events_tenant_idx")
+  @@map("order_events")
+  @@schema("app_private")
+}
+model AuditEvent {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String? @map("tenant_id") @db.Uuid
+  actorUserId String? @map("actor_user_id") @db.Uuid
+  entityType String @map("entity_type") @db.VarChar(30)
+  entityId String @map("entity_id") @db.Uuid
+  action String @db.VarChar(30)
+  beforeState Json? @map("before_state") @db.JsonB
+  afterState Json @map("after_state") @db.JsonB
+  requestId String @map("request_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant Tenant? @relation(fields:[tenantId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  actor User? @relation(fields:[actorUserId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  @@index([tenantId,createdAt],map:"audit_events_tenant_idx")
+  @@map("audit_events")
+  @@schema("app_private")
+}

@@ -1,0 +1,15 @@
+packages:
+  - apps/*
+  - packages/*
+allowBuilds:
+  '@prisma/engines@7.10.1': true
+  'esbuild@0.28.2': true
+  'prisma@7.10.1': true
+minimumReleaseAgeExclude:
+  - '@turbo/darwin-64@2.11.11'
+  - '@turbo/darwin-arm64@2.11.11'
+  - '@turbo/linux-64@2.11.11'
+  - '@turbo/linux-arm64@2.11.11'
+  - '@turbo/windows-64@2.11.11'
+  - '@turbo/windows-arm64@2.11.11'
+  - turbo@2.11.11

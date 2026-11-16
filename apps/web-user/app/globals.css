@@ -1,0 +1,4 @@
+@import "tailwindcss";
+@import "@kantin/ui/tokens.css";
+@import "@kantin/ui/styles.css";
+@source "../../../packages/ui/src";

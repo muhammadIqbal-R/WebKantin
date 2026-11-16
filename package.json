@@ -1,0 +1,31 @@
+{
+  "name": "kantin-app",
+  "private": true,
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "check:docs": "node scripts/check-docs.mjs",
+    "check": "pnpm check:docs && pnpm check:design && pnpm check:database && turbo run lint typecheck test",
+    "check:design": "node scripts/check-design.mjs",
+    "db:bundle": "node scripts/build-database-bundle.mjs",
+    "check:database": "node scripts/build-database-bundle.mjs --check && pnpm --filter @kantin/api db:validate",
+    "test:ui:auth": "node tests/manual/isolated-auth.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "24.19.2",
+    "eslint": "9.39.5",
+    "tsx": "4.23.15",
+    "turbo": "2.11.11",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.2"
+  }
+}

@@ -1,0 +1,461 @@
+{
+  "date": "2026-11-12",
+  "scope": "Browser actual; business demo + explicitly isolated Auth; live Auth only signup/read-only",
+  "counts": {
+    "PASS_UI_DEMO": 46,
+    "NOT_IMPLEMENTED": 6,
+    "FAIL": 2,
+    "BLOCKED": 2,
+    "PASS_READ_ONLY": 1,
+    "PASS_LIVE_AUTH": 1,
+    "PASS_ISOLATED": 14
+  },
+  "cases": [
+    {
+      "id": "U-01",
+      "scenario": "Katalog awal",
+      "status": "PASS_UI_DEMO",
+      "detail": "8 menu contoh terlihat"
+    },
+    {
+      "id": "U-02",
+      "scenario": "Filter kategori minuman",
+      "status": "PASS_UI_DEMO",
+      "detail": "Kategori menampilkan 2 minuman"
+    },
+    {
+      "id": "U-03",
+      "scenario": "Pencarian tidak peka kapital",
+      "status": "PASS_UI_DEMO",
+      "detail": "NASI menampilkan 2 menu"
+    },
+    {
+      "id": "U-04",
+      "scenario": "Pencarian kosong hasil",
+      "status": "PASS_UI_DEMO",
+      "detail": "Empty state muncul"
+    },
+    {
+      "id": "U-05",
+      "scenario": "Urutan harga naik",
+      "status": "PASS_UI_DEMO",
+      "detail": "Harga tampil berurutan"
+    },
+    {
+      "id": "U-06",
+      "scenario": "Menu habis tidak dapat ditambah",
+      "status": "PASS_UI_DEMO",
+      "detail": "Tombol tambah pada dialog habis disabled"
+    },
+    {
+      "id": "U-07",
+      "scenario": "Tambah dua produk dan total",
+      "status": "PASS_UI_DEMO",
+      "detail": "1 ayam 18.000 + 1 teh 6.000 = 24.000"
+    },
+    {
+      "id": "U-08",
+      "scenario": "Tambah kuantitas",
+      "status": "PASS_UI_DEMO",
+      "detail": "2 ayam + 1 teh = 42.000"
+    },
+    {
+      "id": "U-09",
+      "scenario": "Kurangi kuantitas",
+      "status": "PASS_UI_DEMO",
+      "detail": "Total kembali 24.000"
+    },
+    {
+      "id": "U-10",
+      "scenario": "Jumlah nol menghapus baris",
+      "status": "PASS_UI_DEMO",
+      "detail": "Keranjang kosong, tidak ada jumlah negatif"
+    },
+    {
+      "id": "U-11",
+      "scenario": "Checkout kosong disabled",
+      "status": "PASS_UI_DEMO",
+      "detail": "Tombol checkout kosong disabled"
+    },
+    {
+      "id": "U-12",
+      "scenario": "Batas 99 item",
+      "status": "PASS_UI_DEMO",
+      "detail": "Tambah disabled pada 99; total 1.782.000"
+    },
+    {
+      "id": "U-13",
+      "scenario": "Pilih take away",
+      "status": "PASS_UI_DEMO",
+      "detail": "Pilihan take away aktif"
+    },
+    {
+      "id": "U-14",
+      "scenario": "Checkout wajib sesi",
+      "status": "PASS_UI_DEMO",
+      "detail": "Checkout anonymous diblokir oleh login gate frontend"
+    },
+    {
+      "id": "U-15",
+      "scenario": "Keranjang bertahan saat menuju Auth",
+      "status": "PASS_UI_DEMO",
+      "detail": "99 item tetap tersedia saat navigasi ke masuk"
+    },
+    {
+      "id": "A-01",
+      "scenario": "Konfirmasi password berbeda ditolak",
+      "status": "PASS_UI_DEMO",
+      "detail": "Validasi lokal menolak; tidak mengirim signup"
+    },
+    {
+      "id": "A-02",
+      "scenario": "Email salah format ditolak",
+      "status": "PASS_UI_DEMO",
+      "detail": "Input email memiliki validity false"
+    },
+    {
+      "id": "A-03",
+      "scenario": "Password disamarkan",
+      "status": "PASS_UI_DEMO",
+      "detail": "Field memakai type=password"
+    },
+    {
+      "id": "AD-01",
+      "scenario": "Login admin/tenant sungguhan",
+      "status": "NOT_IMPLEMENTED",
+      "detail": "Halaman hanya memilih peran dan Masuk pratinjau; tanpa kredensial/JWT."
+    },
+    {
+      "id": "AD-02",
+      "scenario": "Dashboard pratinjau",
+      "status": "PASS_UI_DEMO",
+      "detail": "Dashboard menampilkan antrean perlu tindakan"
+    },
+    {
+      "id": "M-01",
+      "scenario": "Harga nol ditolak",
+      "status": "PASS_UI_DEMO",
+      "detail": "Browser menolak harga kurang dari 1"
+    },
+    {
+      "id": "M-02",
+      "scenario": "Tambah menu tenant",
+      "status": "PASS_UI_DEMO",
+      "detail": "Menu QA muncul pada tenant pertama, harga 17.500"
+    },
+    {
+      "id": "M-03",
+      "scenario": "Ubah menu menjadi habis",
+      "status": "PASS_UI_DEMO",
+      "detail": "Ketersediaan false/Habis"
+    },
+    {
+      "id": "M-04",
+      "scenario": "Filter menu habis",
+      "status": "PASS_UI_DEMO",
+      "detail": "Menu QA masuk filter Tidak tersedia"
+    },
+    {
+      "id": "M-05",
+      "scenario": "Edit nama dan harga",
+      "status": "PASS_UI_DEMO",
+      "detail": "Nama berubah dan harga menjadi 19.000"
+    },
+    {
+      "id": "M-06",
+      "scenario": "Hapus lunak menu",
+      "status": "PASS_UI_DEMO",
+      "detail": "Menu nonaktif hilang dari daftar; tidak menghapus history"
+    },
+    {
+      "id": "T-01",
+      "scenario": "Tambah tenant",
+      "status": "PASS_UI_DEMO",
+      "detail": "Tenant baru muncul sebagai Draft"
+    },
+    {
+      "id": "T-02",
+      "scenario": "Aktivasi tenant belum lengkap diblokir",
+      "status": "PASS_UI_DEMO",
+      "detail": "Tenant tanpa QRIS/menu tidak bisa aktif"
+    },
+    {
+      "id": "T-03",
+      "scenario": "Menu dipetakan ke tenant baru",
+      "status": "PASS_UI_DEMO",
+      "detail": "Menu baru masuk scope tenant baru"
+    },
+    {
+      "id": "R-01",
+      "scenario": "Tenant tidak melihat menu tenant lain",
+      "status": "PASS_UI_DEMO",
+      "detail": "Menu tenant kedua tersembunyi saat scope tenant pertama"
+    },
+    {
+      "id": "R-02",
+      "scenario": "Akses direct URL tanpa login staf",
+      "status": "FAIL",
+      "detail": "Navigasi penuh mereset role demo ke admin; /tenant langsung terbuka tanpa JWT staf."
+    },
+    {
+      "id": "A-04",
+      "scenario": "Login salah menampilkan error generik",
+      "status": "PASS_UI_DEMO",
+      "detail": "UI menolak login; pesan tidak membocorkan akun"
+    },
+    {
+      "id": "P-01",
+      "scenario": "Persistensi sesudah refresh/navigasi penuh",
+      "status": "NOT_IMPLEMENTED",
+      "detail": "Tenant dan menu QA kembali hilang; state React belum disimpan ke API/database."
+    },
+    {
+      "id": "R-03",
+      "scenario": "Guard peran pada navigasi client",
+      "status": "PASS_UI_DEMO",
+      "detail": "Peran tenant diblokir pada halaman tenant selama state demo bertahan"
+    },
+    {
+      "id": "T-04",
+      "scenario": "Nonaktifkan tenant awal",
+      "status": "PASS_UI_DEMO",
+      "detail": "Tenant awal bisa dinonaktifkan dalam state lokal"
+    },
+    {
+      "id": "T-05",
+      "scenario": "Blokir aktivasi saat gambar QRIS belum ada",
+      "status": "FAIL",
+      "detail": "Tenant awal masih dapat diaktifkan kembali meskipun QRIS placeholder."
+    },
+    {
+      "id": "AC-01",
+      "scenario": "Daftar dan hapus user pelanggan/staf",
+      "status": "NOT_IMPLEMENTED",
+      "detail": "Halaman akun hanya menampilkan profil contoh; tidak ada daftar pengguna/aksi hapus/provisioning."
+    },
+    {
+      "id": "T-06",
+      "scenario": "Hapus tenant baru/draft",
+      "status": "NOT_IMPLEMENTED",
+      "detail": "Tidak ada aksi hapus/arsip pada draft; hanya toggle aktif yang disabled sampai setup lengkap."
+    },
+    {
+      "id": "S-01",
+      "scenario": "Stok tenant berbasis jumlah",
+      "status": "NOT_IMPLEMENTED",
+      "detail": "Menu hanya is_available boolean Tersedia/Habis; belum ada stok angka, reservasi atau pengurangan stok per order."
+    },
+    {
+      "id": "O-01",
+      "scenario": "Konfirmasi pembayaran contoh",
+      "status": "PASS_UI_DEMO",
+      "detail": "Pesanan pertama beralih pending ke Diproses"
+    },
+    {
+      "id": "O-02",
+      "scenario": "Status diproses menjadi siap",
+      "status": "PASS_UI_DEMO",
+      "detail": "Status menjadi Siap diambil"
+    },
+    {
+      "id": "O-03",
+      "scenario": "Status siap menjadi selesai",
+      "status": "PASS_UI_DEMO",
+      "detail": "Status menjadi Selesai"
+    },
+    {
+      "id": "O-04",
+      "scenario": "Penolakan perlu alasan",
+      "status": "PASS_UI_DEMO",
+      "detail": "Alasan kosong menghasilkan validasi"
+    },
+    {
+      "id": "O-05",
+      "scenario": "Tolak pembayaran contoh",
+      "status": "PASS_UI_DEMO",
+      "detail": "Pesanan keempat kembali menunggu bayar"
+    },
+    {
+      "id": "O-06",
+      "scenario": "Antrean pending setelah keputusan",
+      "status": "PASS_UI_DEMO",
+      "detail": "Tidak ada tombol Periksa setelah dua pending diputuskan"
+    },
+    {
+      "id": "O-07",
+      "scenario": "Pesan sampai QRIS nyata dari web-user",
+      "status": "BLOCKED",
+      "detail": "Belum ada sesi akun uji terkonfirmasi; checkout yang tersedia hanya membuat order demo, QRIS masih placeholder."
+    },
+    {
+      "id": "O-08",
+      "scenario": "Order customer muncul di admin dan status realtime kembali ke customer",
+      "status": "NOT_IMPLEMENTED",
+      "detail": "Dua DemoProvider terpisah; tidak ada endpoint Express atau subscription Realtime operasional."
+    },
+    {
+      "id": "A-05",
+      "scenario": "Konfigurasi Auth live read-only",
+      "status": "PASS_READ_ONLY",
+      "detail": "GET auth/v1/settings HTTP 200; email provider aktif, signup aktif, email confirmation wajib."
+    },
+    {
+      "id": "A-06",
+      "scenario": "Daftar, konfirmasi email, login sukses, logout akun nyata",
+      "status": "BLOCKED",
+      "detail": "Email yang disetujui dinyatakan fiktif oleh pengguna; konfirmasi inbox tidak tersedia. Login sukses Supabase live belum terverifikasi."
+    },
+    {
+      "id": "F-01",
+      "scenario": "Upload SVG ditolak",
+      "status": "PASS_UI_DEMO",
+      "detail": "SVG tidak termasuk MIME yang diizinkan"
+    },
+    {
+      "id": "F-02",
+      "scenario": "Upload lebih dari 2 MiB ditolak",
+      "status": "PASS_UI_DEMO",
+      "detail": "File 2.097.153 byte ditolak"
+    },
+    {
+      "id": "F-03",
+      "scenario": "Preview JPG valid",
+      "status": "PASS_UI_DEMO",
+      "detail": "JPG valid dipreview lokal sebagai blob; belum upload ke Storage"
+    },
+    {
+      "id": "A-07",
+      "scenario": "Submit signup pelanggan dari UI",
+      "status": "PASS_LIVE_AUTH",
+      "detail": "Signup dari UI membuat akun QA di Supabase; pemeriksaan Auth Admin read-only menemukan akun belum terkonfirmasi."
+    },
+    {
+      "id": "I-01",
+      "scenario": "Signup pelanggan dengan Auth terisolasi",
+      "status": "PASS_ISOLATED",
+      "detail": "Session mock dibuat melalui SDK dan UI checkout terbuka; bukan konfirmasi email live."
+    },
+    {
+      "id": "I-02",
+      "scenario": "Nama kosong/spasi ditolak",
+      "status": "PASS_ISOLATED",
+      "detail": "Zod menolak nama hanya spasi"
+    },
+    {
+      "id": "I-03",
+      "scenario": "Checkout take away membuat order contoh",
+      "status": "PASS_ISOLATED",
+      "detail": "2 produk, total 24.000, tipe Bawa pulang, status menunggu bayar."
+    },
+    {
+      "id": "I-04",
+      "scenario": "QRIS tidak menyamar sebagai pembayaran nyata",
+      "status": "PASS_ISOLATED",
+      "detail": "QRIS ditandai placeholder dan melarang transfer pada preview."
+    },
+    {
+      "id": "I-05",
+      "scenario": "Klaim bayar masuk pending konfirmasi",
+      "status": "PASS_ISOLATED",
+      "detail": "Klaim tidak langsung menandai lunas; menunggu konfirmasi."
+    },
+    {
+      "id": "I-06",
+      "scenario": "Cegah klaim bayar berulang pada UI",
+      "status": "PASS_ISOLATED",
+      "detail": "Tombol klaim hilang setelah pending; idempotency server diuji terpisah SQL lokal."
+    },
+    {
+      "id": "I-07",
+      "scenario": "Profil akun pelanggan terisolasi",
+      "status": "PASS_ISOLATED",
+      "detail": "Nama display dan email akun test ditampilkan; tidak ada peran staf."
+    },
+    {
+      "id": "I-08",
+      "scenario": "Logout mereset keranjang",
+      "status": "PASS_ISOLATED",
+      "detail": "Session mock keluar dan keranjang kembali nol."
+    },
+    {
+      "id": "I-09",
+      "scenario": "Logout membersihkan order contoh",
+      "status": "PASS_ISOLATED",
+      "detail": "Order dari sesi sebelumnya tidak terlihat sesudah logout."
+    },
+    {
+      "id": "I-10",
+      "scenario": "Login akun test yang sudah terdaftar",
+      "status": "PASS_ISOLATED",
+      "detail": "Signin mock sukses, checkout terbuka tanpa memulihkan order lama."
+    },
+    {
+      "id": "I-11",
+      "scenario": "Session dipulihkan sesudah refresh",
+      "status": "PASS_ISOLATED",
+      "detail": "SDK membaca session mock yang masih berlaku; data bisnis tetap hanya state lokal."
+    },
+    {
+      "id": "I-12",
+      "scenario": "Ubah jumlah pada checkout",
+      "status": "PASS_ISOLATED",
+      "detail": "2 camilan pada checkout dihitung 20.000."
+    },
+    {
+      "id": "I-13",
+      "scenario": "Checkout dine in",
+      "status": "PASS_ISOLATED",
+      "detail": "Order dine in dibuat dengan total 10.000 dan status menunggu bayar."
+    },
+    {
+      "id": "UX-01",
+      "scenario": "Escape menutup dialog dan memulihkan fokus",
+      "status": "PASS_UI_DEMO",
+      "detail": "Dialog hilang dan fokus kembali ke tombol Tambah menu"
+    },
+    {
+      "id": "UX-02",
+      "scenario": "Tracker pesanan pada HP",
+      "status": "PASS_ISOLATED",
+      "detail": "Tracker order QA tidak overflow pada 360px."
+    },
+    {
+      "id": "UX-03",
+      "scenario": "Pesanan admin pada HP",
+      "status": "PASS_UI_DEMO",
+      "detail": "360px tidak overflow; pesanan memakai daftar vertikal."
+    },
+    {
+      "id": "O-09",
+      "scenario": "Filter status admin",
+      "status": "PASS_UI_DEMO",
+      "detail": "Filter menampilkan 2 pending pada dataset baru"
+    },
+    {
+      "id": "O-10",
+      "scenario": "Pencarian pesanan kosong",
+      "status": "PASS_UI_DEMO",
+      "detail": "Empty state pesanan tampil"
+    },
+    {
+      "id": "R-04",
+      "scenario": "Tenant tidak dapat mengedit denah",
+      "status": "PASS_UI_DEMO",
+      "detail": "Guard denah menolak role tenant setelah navigasi selesai; pemeriksaan awal terlalu dini dan dikoreksi."
+    }
+  ],
+  "verification": {
+    "freshAutomatedTests": {
+      "shared": 17,
+      "postgresLocal": 24,
+      "total": 41,
+      "turboCache": false
+    },
+    "qualityChecks": "PASS",
+    "productionBuild": "PASS: shared + web-user + web-admin",
+    "databaseLive": "BLOCKED_DNS_EAI_AGAIN",
+    "qaSupabaseAccountCleanup": "PASS: fresh unconfirmed QA identity only",
+    "normalAppEnvChanged": false,
+    "qaBannerInNormalProductionHtml": false
+  }
+}

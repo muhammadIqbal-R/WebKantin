@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import './globals.css';
 import { CustomerAuthProvider } from '../components/customer-auth';
 import { UserShell } from '../components/user-shell';
+import { Analytics } from '@vercel/analytics/next';
 
 const poppins = localFont({
   src: [
@@ -17,5 +18,14 @@ const poppins = localFont({
 });
 export const metadata: Metadata = { title: 'Kantin Vokasi UI — Menu hari ini', description: 'Pilih menu favorit, pesan, dan ambil di kantin fakultas. Pratinjau dengan data contoh.' };
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="id" className={poppins.variable}><body className="customer-app"><CustomerAuthProvider><UserShell>{children}</UserShell></CustomerAuthProvider></body></html>;
+  return (
+    <html lang="id" className={poppins.variable}>
+      <body className="customer-app">
+        <CustomerAuthProvider>
+          <UserShell>{children}</UserShell>
+        </CustomerAuthProvider>
+        <Analytics />
+      </body>
+    </html>
+  );
 }

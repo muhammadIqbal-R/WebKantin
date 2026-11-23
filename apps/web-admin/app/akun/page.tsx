@@ -1,16 +1,21 @@
 'use client';
-import Link from 'next/link';
-import { Badge, Button, CircleAlert, ExternalLink, LogOut, Settings2, Store, Users } from '@kantin/ui';
-import { useDemo } from '@kantin/ui/demo';
-export default function AccountPage() {
-  const { role, tenants } = useDemo();
-  const isAdmin = role === 'admin_pengelola';
-  return <><div className="page-intro"><div><div className="eyebrow text-action">AKUN PENGELOLA</div><h1 style={{ marginTop: 'var(--s2)' }}>Akun & akses</h1><p>Lihat peran dan batas akses akun pengelola.</p></div><Badge>Identitas contoh</Badge></div>
-    <div className="account-grid"><section className="panel"><div className="tenant-detail"><span className="avatar">{isAdmin ? 'AP' : 'BS'}</span><div><h2>{isAdmin ? 'Admin Pengelola' : tenants[0]?.name}</h2><p>{isAdmin ? 'admin@example.com' : tenants[0]?.email}</p></div><Badge tone="success">{isAdmin ? 'Admin' : 'Tenant'}</Badge></div>
-      <div className="settings-list"><div className="settings-row"><div><strong>Peran akun</strong><p>{isAdmin ? 'Mengelola seluruh kantin dan tenant' : 'Mengelola menu dan pesanan tenant sendiri'}</p></div><Users /></div>
-        <div className="settings-row"><div><strong>Lokasi</strong><p>Kantin Fakultas</p></div><Store /></div>
-        <div className="settings-row"><div><strong>Autentikasi</strong><p>Supabase Auth belum dihubungkan</p></div><Badge>Placeholder</Badge></div></div>
-      <div className="form-actions"><Button variant="outline" asChild><Link href="/login"><LogOut />Halaman masuk</Link></Button></div>
-    </section><section className="panel"><h2 className="row"><Settings2 />Pembagian akses</h2><div className="stack" style={{ marginTop: 'var(--s5)' }}><p className="small muted">Admin pengelola menambah tenant dan akun tenant, serta mengelola menu seluruh tenant. Akun tenant hanya mengelola menu dan pesanan miliknya sendiri.</p>
-      <p className="notice small"><CircleAlert />Akun staf dan penyimpanan data belum terhubung API.</p><a className="link-action" href={process.env.NEXT_PUBLIC_USER_URL ?? 'http://localhost:3000'} target="_blank" rel="noreferrer">Buka web pemesan<ExternalLink /></a></div></section></div></>;
+import { useCallback, useState } from 'react';
+import { ManagedUsersResponseSchema, UserStatusResponseSchema, type ManagedUser } from '@kantin/shared';
+import { Badge, Button, Modal } from '@kantin/ui';
+import { useLoad, useManagement } from '../../components/management';
+import { DataState } from '../../components/data-state';
+import {LinkTenantAccount} from '../../components/link-tenant-account';
+export default function AccountPage(){
+  const {actor}=useManagement();
+  return <><div className="page-intro"><div><h1>Akun & akses</h1><p>{actor?.email}</p></div><Badge>{actor?.role==='admin_pengelola'?'Admin pengelola':'Tenant'}</Badge></div>{actor?.role==='admin_pengelola'?<Users/>:<section className="panel stack"><h2>Akun tenant</h2><p>Anda dapat mengelola menu dan stok tenant sendiri.</p><p className="small muted">Pengelolaan akun dan tenant dilakukan admin kantin.</p></section>}</>;
+}
+function Users(){
+  const {actor,request}=useManagement();const [page,setPage]=useState(1);
+  const load=useCallback(()=>request('/api/admin/users?page='+page,ManagedUsersResponseSchema),[request,page]);const state=useLoad(load);
+  const [linkUser,setLinkUser]=useState<ManagedUser|null>(null);
+  const [selected,setSelected]=useState<ManagedUser|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+  async function save(){if(!selected)return;setBusy(true);setError('');try{await request('/api/admin/users/'+selected.id,UserStatusResponseSchema,'PATCH',{is_active:!selected.is_active});setSelected(null);setNotice('Status akses pengguna diperbarui.');await state.reload();}catch(failure:unknown){setError(failure instanceof Error?failure.message:'Perubahan gagal.');}finally{setBusy(false);}}
+  return <section className="panel stack"><div className="panel-header"><h2>Pengguna</h2><Button variant="outline" disabled={state.loading} onClick={()=>void state.reload()}>Muat ulang</Button></div><p className="small muted">Nonaktifkan akses untuk menghapus pengguna dari operasional. Identitas dan riwayat transaksi tetap tersimpan.</p><DataState {...state} retry={state.reload}/>{notice?<p role="status" className="notice">{notice}</p>:null}
+    <div className="table-wrap" tabIndex={0} aria-label="Daftar pengguna"><table className="data-table"><thead><tr><th>Pengguna</th><th>Peran</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{state.data?.data.map(user=><tr key={user.id}><td><strong>{user.name??user.email}</strong><p className="small muted">{user.email}</p></td><td>{user.role==='admin_pengelola'?'Admin':user.role==='tenant'?'Tenant':'Pelanggan'}</td><td><Badge tone={user.is_active?'success':'neutral'}>{user.is_active?'Aktif':'Nonaktif'}</Badge></td><td><Button variant={user.is_active?'danger':'outline'} size="sm" disabled={busy||user.id===actor?.id||state.loading} onClick={()=>{setSelected(user);setError('');}}>{user.id===actor?.id?'Akun Anda':user.is_active?'Nonaktifkan':'Pulihkan'}</Button>{user.role==='pelanggan'&&user.is_active?<Button size="sm" variant="outline" onClick={()=>setLinkUser(user)}>Jadikan akun tenant</Button>:null}</td></tr>)}</tbody></table></div>{!state.loading&&!state.error&&!state.data?.data.length?<p>Belum ada pengguna pada halaman ini.</p>:null}<div className="row between"><Button variant="outline" disabled={page===1||state.loading} onClick={()=>setPage(value=>value-1)}>Sebelumnya</Button><span className="small">Halaman {page}</span><Button variant="outline" disabled={!state.data?.next_page||state.loading} onClick={()=>setPage(value=>value+1)}>Berikutnya</Button></div>
+    <Modal open={!!linkUser} onOpenChange={open=>{if(!open)setLinkUser(null);}} title="Hubungkan akun tenant" description={linkUser?.email??''}>{linkUser?<LinkTenantAccount id={linkUser.id} done={async()=>{setLinkUser(null);await state.reload();}}/>:null}</Modal><Modal open={!!selected} onOpenChange={open=>{if(!busy&&!open)setSelected(null);}} title={selected?.is_active?'Nonaktifkan pengguna?':'Pulihkan pengguna?'} description={selected?.email??''}><p>{selected?.is_active?'Pengguna tidak dapat masuk kembali. Riwayat transaksi tetap tersimpan.':'Pengguna dapat masuk kembali dengan akun yang sama.'}</p>{error?<p className="form-error" role="alert">{error}</p>:null}<div className="form-actions"><Button variant="outline" disabled={busy} onClick={()=>setSelected(null)}>Batal</Button><Button loading={busy} variant={selected?.is_active?'danger':'primary'} onClick={()=>void save()}>{selected?.is_active?'Nonaktifkan':'Pulihkan'}</Button></div></Modal></section>;
 }

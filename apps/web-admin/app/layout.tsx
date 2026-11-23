@@ -13,7 +13,7 @@ const poppins = localFont({
   variable: '--font-poppins',
   display: 'swap',
 });
-export const metadata: Metadata = { title: 'Pengelola — Kantin Vokasi UI', description: 'Pratinjau panel pengelola kantin, tenant, menu dan pesanan.' };
+export const metadata: Metadata = { title: 'Pengelola — Kantin Vokasi UI', description: 'Pengelolaan tenant, menu, stok, dan akses kantin.' };
 export default function RootLayout({ children }: { children: ReactNode }) {
   return <html lang="id" className={poppins.variable}><body className="management-app"><AdminShell>{children}</AdminShell></body></html>;
 }

@@ -82,6 +82,7 @@ server.listen(4100,'127.0.0.1',()=>{
   frontend=spawn(process.execPath,[require.resolve('next/dist/bin/next'),'dev','--port','3100'],{
     cwd:app,stdio:'inherit',windowsHide:true,env:{...process.env,
       KANTIN_QA_ISOLATED:'1',NEXT_PUBLIC_QA_AUTH_SIMULATED:'true',
+      NEXT_PUBLIC_API_URL:endpoint,
       NEXT_PUBLIC_SUPABASE_URL:endpoint,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_QA_ONLY_NOT_A_REAL_KEY',
     },

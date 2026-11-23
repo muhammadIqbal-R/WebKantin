@@ -26,6 +26,8 @@ Edge: disconnect/JWT expiry → status koneksi + polling API setiap 15 detik; re
 
 ## 4. Kontrak API (endpoint, request, response)
 
+Revisi 21 November: [vendor launch](../vendor-launch.md) memakai JWT akun pemilik/staf dan RLS untuk postgres_changes orders; tidak memerlukan custom capability signing key untuk akun baru. Polling fallback dan feed staff dideduplikasi. Detail anonim/capability berikut merupakan rancangan historis.
+
 `GET /api/orders/:code` publik berbasis capability; OrderCodeParamsSchema + OrderAccessHeadersSchema → 200 OrderDetailResponseSchema.
 `POST /api/orders/:id/realtime-token`; IdParamsSchema + OrderAccessHeadersSchema + EmptyBodySchema `{}` → 200 TrackerTokenResponseSchema `{access_token,expires_at,order_id}`. Endpoint token ini proposed dan gated oleh spike SEC-01.
 400 invalid; 404 token/order tidak cocok; 429; 503 ketidaktersediaan token → tetap polling aman. Semua respons no-store, bukan public cache.

@@ -2,8 +2,8 @@
 
 **Status:** draft  
 **Pemilik:** Lead Full-Stack Engineer / Software Architect; persetujuan oleh pemilik produk  
-**Terakhir diperbarui:** 2026-11-12  
-**Milestone aktif:** revisi frontend Vokasi UI + akun pelanggan minimal; implementasi database M1 — SQL Supabase siap salin, Prisma, seed dan tes lokal. Frontend tetap pratinjau; project live tidak diubah agen.
+**Terakhir diperbarui:** 2026-11-23
+**Milestone aktif:** revisi vendor: pilih tenant, katalog, akun staf, order persisten/QRIS manual, reservasi stok dan kode Realtime/notifikasi. Implementasi lokal diuji; pemasangan SQL/deploy/UAT Supabase live belum dilakukan agen.
 
 ## 1. Otoritas dan ruang lingkup
 
@@ -18,10 +18,9 @@ Dokumen turunan masih draft, bukan persetujuan produk baru.
 M0 telah menghasilkan struktur, dokumentasi, kontrak Zod, tooling, dan CI.
 Arahan pengguna berikutnya mengizinkan desain frontend kedua aplikasi terlebih dahulu
 dengan placeholder. Arahan berikutnya meminta SQL database lengkap siap salin;
-Prisma mapping, migration, seed dan tes DB lokal kini tersedia. Express handler,
-koneksi database live dan deploy belum dibuat/dijalankan.
-Supabase project sudah tersedia menurut pengguna; belum ada tabel aplikasi.
-Tidak ada kredensial dibaca atau database live diubah.
+Prisma mapping, migration, seed dan tes DB lokal kini tersedia. Express handler
+pengelolaan dan wiring web-admin ditambahkan pada 20 November. Kondisi database
+live/deployment belum diverifikasi; tidak ada SQL live dijalankan agen.
 
 Klarifikasi pengguna 2026-11-12: produk digunakan untuk satu kantin fakultas.
 Peluncuran dimulai dengan satu tenant; tenant berikutnya ditambahkan melalui
@@ -233,6 +232,10 @@ dan lisensi OFL disimpan di packages/ui/fonts; tidak ada dependency runtime baru
 
 ## 6. Indeks kontrak, desain, dan keamanan
 
+- [Revisi vendor 21 November](vendor-launch.md): tenant-first, katalog vendor, akun staf, checkout persisten dan notifikasi berbasis JWT akun. Akun baru mengganti ketergantungan ADR-006 capability anonim; semua mutasi tetap API. Draft PRD lain tidak otomatis approved.
+
+- [Pengelolaan operasional 20 November](staff-management.md): lingkup ACC implementasi login/RBAC, pengguna, tenant dan stok; mengganti batas pratinjau ADR-010 untuk modul tersebut. Modul checkout/pembayaran/realtime tetap menunggu lingkup berikutnya.
+
 - [Kontrak shared](../packages/shared/README.md): entities, request/response, tipe, status.
 - [Model data dan ERD](data-model.md): tabel, constraint, dan mapping Prisma.
 - [Instalasi Supabase](../infra/supabase/README.md), [SQL siap salin](../infra/supabase/setup.sql),
@@ -265,6 +268,10 @@ Estimasi PRD ±10 minggu untuk satu developer; bukan janji jadwal baru.
 
 | Tanggal | Perubahan/konflik | Penyelesaian |
 |---|---|---|
+| 2026-11-23 | Audit ulang alur pelanggan, tenant, dan pengelola | Keranjang bertahan saat masuk, umpan balik QRIS/status diperjelas, serta F-05 denah/outlet terhubung ke API. [Laporan audit](qa/FLOW-AUDIT-2026-11-23.md). |
+| 2026-11-21 | Vendor meminta tenant-first, katalog, akun dan notifikasi | vendor-launch.md: ownership Auth, RLS pemilik/staf, INSERT/UPDATE publication dan audio opt-in; SQL live/deploy oleh operator. |
+| 2026-11-20 | Tambah tenant harus mencakup menu, gambar dan detail di dalamnya | Onboarding `/tenant/:id`, foto/menu/QRIS melalui Express, katalog publik API; checkout/realtime tetap terpisah. |
+| 2026-11-20 | Pengguna meminta login/RBAC, pengguna, tambah/arsip tenant dan stok angka | ACC implementasi modul pengelolaan sesuai staff-management.md; draft PRD lain tidak dianggap approved. Baseline SQL tidak diulang; migration tambahan oleh operator. |
 | 2026-11-14 | Pengguna meminta Poppins | ADR-016 mengganti Lora/Source Sans 3 di kedua frontend. |
 | 2026-11-14 | Vendor meminta latar olive dan section cream | ADR-015 mengganti penempatan canvas/surface ADR-014 pada kedua frontend. |
 | 2026-11-14 | Pengguna menetapkan olive/cream dan pengelolaan oleh operator | ADR-014: admin menambah tenant/menu, tenant hanya miliknya; palet bersama. |

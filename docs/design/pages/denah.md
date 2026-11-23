@@ -14,3 +14,11 @@
   kontrol, disabled zoom batas, loading upload hanya pada admin.
 - Akses: alt menggambarkan konteks, lokasi penting juga teks, zoom keyboard dan focus terlihat.
 
+# Revisi vendor 21 November
+
+Tanpa denah asli, halaman pelanggan tetap menampilkan lokasi teks dan tenant aktif.
+Pada 23 November, arah panel ditetapkan sebagai daftar outlet dengan form lokasi,
+pratinjau, unggah, dan status publik. Gunakan tombol untuk meminta ulang gambar
+yang gagal dan tautan untuk membuka denah ukuran penuh. Jangan mengarang jam,
+posisi tenant, atau gambar denah operasional.
+

@@ -1,12 +1,11 @@
 # F-05 · Denah Kantin dan Outlet
 **Status:** draft
 **Pemilik:** Lead Full-Stack Engineer
-**Terakhir diperbarui:** 2026-11-12
+**Terakhir diperbarui:** 2026-11-23
 **Terkait:** F-01, F-06, DESIGN-01, SEC-02
 
-Istilah mengikuti [MASTER](../MASTER.md); detail ini merupakan kontrak rencana, belum endpoint aktif.
-
-**Progres frontend:** Denah ilustrasi tersedia pada /lokasi (user) dan /denah (admin); gambar lokal dapat dipreview admin, belum tersimpan di Storage. Rujuk [hasil pratinjau](../frontend-preview.md).
+Istilah mengikuti [MASTER](../MASTER.md). Panel `/denah` dipakai admin,
+dan halaman `/lokasi` menampilkan outlet aktif serta tenant di outlet tersebut.
 
 ## 1. Tujuan
 
@@ -19,12 +18,17 @@ Sebagai pemesan, saya dapat melihat outlet dan denah agar menemukan tenant; seba
 ## 3. Alur (happy path + edge case)
 
 Happy path: buka denah kantin fakultas yang digunakan → API mengembalikan nama/lokasi/gambar outlet tunggal → tampilkan gambar responsif dan lokasi tekstual. Pemesan tidak perlu memilih fakultas/kantin lain.
-Admin unggah lewat endpoint media API → ganti floor_map_url → invalidasi cache.
+Admin membuat outlet draft atau mengedit lokasi yang sudah ada. Admin unggah
+gambar melalui API, simpan perubahan, lalu aktifkan outlet saat siap. Halaman
+pelanggan meminta data terbaru saat dibuka ulang.
 Edge: denah belum ada → lokasi teks+empty state; gambar gagal → retry; outlet nonaktif tidak tersedia publik; outlet berisi tenant aktif tidak boleh dinonaktifkan tanpa memindahkan/menonaktifkan tenant terlebih dahulu.
 
 ## 4. Kontrak API (endpoint, request, response)
 
 `GET /api/outlets` query PaginationQuerySchema → 200 OutletListResponseSchema; `GET /api/outlets/:id` IdParamsSchema → 200 OutletSchema; keduanya publik.
+Untuk membaca gambar privat, gunakan `GET /api/outlets/:id/floor-map` atau padanannya
+di `/api/admin/outlets/:id/floor-map` (FloorMapResponseSchema). Gambar kosong atau
+gagal dibuka tidak menghalangi pembacaan metadata lokasi.
 Admin: `GET /api/admin/outlets` (PaginationQuerySchema → OutletListResponseSchema); `GET /api/admin/outlets/:id` → OutletSchema; `POST /api/admin/outlets` CreateOutletRequestSchema → 201 OutletSchema; `PATCH /api/admin/outlets/:id` UpdateOutletRequestSchema → 200 OutletSchema; `DELETE /api/admin/outlets/:id` → 204 (soft delete, tanpa body).
 Upload `POST /api/admin/uploads?purpose=floor_map&owner_id=<outlet-id>` sesuai F-07. Admin JWT wajib untuk semua admin path. 400/401/403/404/409/413/415/429 sesuai [konvensi](../api-conventions.md).
 
@@ -42,7 +46,10 @@ Admin dapat mengganti denah tanpa build/deploy; web-user menerima versi terbaru 
 
 ## 8. Catatan Keamanan
 
-Admin-only mutasi/unggah. Outlet tabel global tetap RLS. Gambar whitelist, 2 MiB batas awal konsisten kontrak (dapat direview khusus denah), magic bytes; tidak menerima SVG. URL bukan arbitrary remote fetch.
+Admin-only mutasi/unggah. Outlet tabel global tetap RLS. Bucket `floor-maps`
+tetap privat. API memeriksa bahwa aset tersimpan di bucket proyek dan prefix ID
+outlet yang bersangkutan. Gambar JPG, PNG, atau WebP maksimal 2 MiB dan hasil
+dekode harus valid. Link bertanda tangan berlaku 5 menit.
 
 ## 9. Catatan Desain (rujuk DESIGN.md)
 
@@ -54,4 +61,4 @@ Integrasi: admin update dan cache invalidate, tenant 403, delete outlet berisi t
 
 Implementasi database: [SQL dan panduan pemasangan](../../infra/supabase/README.md),
 [mapping data](../data-model.md), dan [24 tes lokal](../database-validation.md).
-Endpoint/layanan fitur belum dihubungkan; status spesifikasi tetap draft.
+Status spesifikasi tetap draft. Tidak diperlukan migrasi baru untuk denah.

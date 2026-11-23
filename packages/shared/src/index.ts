@@ -4,3 +4,6 @@ export * from './catalog.js';
 export * from './orders.js';
 export * from './auth.js';
 export * from './uploads.js';
+export * from './management.js';
+export * from './vendor.js';
+export * from './notifications.js';

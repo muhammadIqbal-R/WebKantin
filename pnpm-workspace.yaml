@@ -13,3 +13,4 @@ minimumReleaseAgeExclude:
   - '@turbo/windows-64@2.11.11'
   - '@turbo/windows-arm64@2.11.11'
   - turbo@2.11.11
+  - jose@6.2.18

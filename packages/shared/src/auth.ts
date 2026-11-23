@@ -8,7 +8,7 @@ export const UserSchema = z.strictObject({
   is_active: z.boolean(), created_at: TimestampSchema, updated_at: TimestampSchema,
 }).refine((user) => user.role === 'tenant' ? user.tenant_id !== null : user.tenant_id === null,
   'Role and tenant scope do not match');
-export const CreateTenantAccountRequestSchema = z.strictObject({ tenant_id: IdSchema, email: z.email() });
+export const CreateTenantAccountRequestSchema = z.strictObject({ tenant_id: IdSchema, email: z.string().trim().toLowerCase().max(320).pipe(z.email()) });
 export const MeResponseSchema = z.strictObject({ data: UserSchema });
 export type User = z.infer<typeof UserSchema>;
 export type Role = z.infer<typeof RoleSchema>;

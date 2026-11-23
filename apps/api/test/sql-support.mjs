@@ -9,7 +9,7 @@ export async function makeDatabase() {
     CREATE ROLE service_role NOLOGIN BYPASSRLS;
     CREATE ROLE authenticator NOLOGIN NOINHERIT;
     CREATE SCHEMA auth;
-    CREATE TABLE auth.users(id uuid PRIMARY KEY, email text);
+    CREATE TABLE auth.users(id uuid PRIMARY KEY, email text, banned_until timestamptz);
     CREATE SCHEMA storage;
     CREATE TABLE storage.buckets(id text PRIMARY KEY,name text NOT NULL,public boolean DEFAULT false,file_size_limit bigint,allowed_mime_types text[]);
     CREATE TABLE storage.objects(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),bucket_id text REFERENCES storage.buckets(id),name text NOT NULL);

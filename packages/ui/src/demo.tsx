@@ -1,7 +1,7 @@
 'use client';
 
-import { createContext, useContext, useState, type ReactNode } from 'react';
-import { CreateOrdersRequestSchema, OrderDetailResponseSchema, ORDER_TRANSITIONS, type Order, type Role } from '@kantin/shared';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { CreateOrdersRequestSchema, IdSchema, LIMITS, OrderDetailResponseSchema, OrderTypeSchema, ORDER_TRANSITIONS, QuantitySchema, type Order, type Role } from '@kantin/shared';
 import { ACTOR_ID, DEMO_ADMIN_ORDERS, DEMO_MENUS, DEMO_TENANTS, OUTLET_ID, type DemoMenu, type DemoOrder, type DemoTenant } from './demo-data';
 export * from './demo-data';
 
@@ -10,6 +10,7 @@ type DemoContextValue = {
   cart: Record<string, number>; orderType: Order['order_type']; notice: string;
   setOrderType: (type: Order['order_type']) => void;
   changeQuantity: (menuId: string, delta: number) => void;
+  clearCart:()=>void;
   placeOrders: (name: string) => DemoOrder[];
   reportPaid: (id: string) => void;
   updateOrder: (id: string, action: 'accept' | 'reject' | 'ready' | 'complete', reason?: string) => void;
@@ -17,20 +18,67 @@ type DemoContextValue = {
   toggleTenant: (id: string) => void; notify: (message: string) => void;
 };
 const DemoContext = createContext<DemoContextValue | null>(null);
-export function DemoProvider({ children, surface }: { children: ReactNode; surface: 'user' | 'admin' }) {
-  const [menus, setMenus] = useState(DEMO_MENUS);
-  const [tenants, setTenants] = useState(DEMO_TENANTS);
+const CART_KEY = 'kantin-customer-cart-v1';
+
+export function clearPersistedCart() {
+  try { sessionStorage.removeItem(CART_KEY); } catch { /* Storage may be disabled. */ }
+}
+
+export function DemoProvider({ children, surface, catalog, persistCart = false }: {
+  children: ReactNode;
+  surface: 'user' | 'admin';
+  catalog?: { menus: DemoMenu[]; tenants: DemoTenant[] };
+  persistCart?: boolean;
+}) {
+  const [localMenus, setMenus] = useState(DEMO_MENUS);
+  const [localTenants, setTenants] = useState(DEMO_TENANTS);
+  const menus=catalog?.menus??localMenus,tenants=catalog?.tenants??localTenants;
   const [orders, setOrders] = useState<DemoOrder[]>(surface === 'admin' ? DEMO_ADMIN_ORDERS : []);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [orderType, setOrderType] = useState<Order['order_type']>('dine_in');
+  const [restored, setRestored] = useState(false);
   const [notice, setNotice] = useState('');
   const [role, setRole] = useState<Role>('admin_pengelola');
+  useEffect(() => {
+    if (!persistCart) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      try {
+        const saved: unknown = JSON.parse(sessionStorage.getItem(CART_KEY) ?? 'null');
+        if (saved && typeof saved === 'object') {
+          if ('cart' in saved && saved.cart && typeof saved.cart === 'object') {
+            const entries = Object.entries(saved.cart)
+              .filter(([id, qty]) => IdSchema.safeParse(id).success && QuantitySchema.safeParse(qty).success)
+              .slice(0, LIMITS.maxCartLines);
+            setCart(Object.fromEntries(entries));
+          }
+          if ('orderType' in saved) {
+            const type = OrderTypeSchema.safeParse(saved.orderType);
+            if (type.success) setOrderType(type.data);
+          }
+        }
+      } catch { clearPersistedCart(); }
+      setRestored(true);
+    });
+    return () => { active = false; };
+  }, [persistCart]);
+  useEffect(() => {
+    if (!persistCart || !restored) return;
+    try {
+      if (Object.keys(cart).length) sessionStorage.setItem(CART_KEY, JSON.stringify({ cart, orderType }));
+      else clearPersistedCart();
+    } catch { /* The in-memory cart still works. */ }
+  }, [cart, orderType, persistCart, restored]);
   function notify(message: string) { setNotice(message); }
   function changeQuantity(menuId: string, delta: number) {
     const item = menus.find((entry) => entry.id === menuId);
-    if (!item?.is_active || !item.is_available) return;
+    if (delta>0&&(!item?.is_active||!item.is_available)) return;
     setCart((current) => {
-      const next = { ...current, [menuId]: Math.min(99, Math.max(0, (current[menuId] ?? 0) + delta)) };
+      const previous = current[menuId] ?? 0;
+      if (delta > 0 && previous >= Math.min(99, item?.stock ?? 99)) return current;
+      if (delta > 0 && previous === 0 && Object.keys(current).length >= LIMITS.maxCartLines) return current;
+      const next = { ...current, [menuId]: Math.min(delta>0?Math.min(99,item?.stock??99):99, Math.max(0, previous + delta)) };
       if (next[menuId] === 0) delete next[menuId];
       return next;
     });
@@ -106,7 +154,7 @@ export function DemoProvider({ children, surface }: { children: ReactNode; surfa
     setTenants((current) => current.map((entry) => entry.id === id ? { ...entry, is_active: !entry.is_active } : entry));
     notify('Status tenant contoh diperbarui.');
   }
-  return <DemoContext.Provider value={{ menus, tenants, orders, role, setRole, cart, orderType, notice, setOrderType, changeQuantity,
+  return <DemoContext.Provider value={{ menus, tenants, orders, role, setRole, cart, orderType, notice, setOrderType, changeQuantity,clearCart:()=>{if(persistCart)clearPersistedCart();setCart({});},
     placeOrders, reportPaid, updateOrder, saveMenu, addTenant, toggleTenant, notify }}>{children}</DemoContext.Provider>;
 }
 export function useDemo() {

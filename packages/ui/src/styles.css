@@ -437,6 +437,13 @@ small,.small {
   height: 100%;
   object-fit: cover
 }
+.food-photo.upload-preview {
+  width: min(100%, var(--cart-width));
+  height: auto;
+  max-height: var(--section-photo);
+  object-fit: contain;
+  object-position: left center;
+}
 .menu-image>.badge {
   position: absolute;
   top: var(--s3);
@@ -2565,3 +2572,10 @@ body:has(.mobile-cart) .site-footer {
 .catalog-layout > section { padding:var(--s4); }.admin-mobile-brand .brand-word { font-size:var(--text-label); }
 }
 
+.floor-map img {
+  display: block;
+  max-width: 100%;
+  max-height: 32rem;
+  object-fit: contain;
+  object-position: left;
+}

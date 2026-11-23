@@ -18,6 +18,10 @@ Sebagai pemesan, saya dapat memilih tenant, melihat foto/harga/menu tersedia, da
 
 ## 3. Alur (happy path + edge case)
 
+Vendor 21 November: beranda memilih tenant dahulu; menu ada di `/tenant/:id`, tanpa auto memilih tenant pertama. Harga/menu awal sesuai [vendor launch](../vendor-launch.md).
+
+Revisi onboarding 20 November: katalog pelanggan membaca tenant/menu aktif melalui Express, termasuk foto, kategori, deskripsi dan stok. Request gagal menampilkan error/retry tanpa fixture produksi. Tenant draft/arsip tidak tampil. Checkout masih simulasi terpisah sampai integrasi pemesanan disetujui/selesai.
+
 Happy path awal: buka katalog kantin fakultas → muat tenant aktif dari API → pilih otomatis satu tenant yang tersedia → tampilkan menu → tambah item. Tidak ada langkah memilih fakultas/outlet pada rilis awal.
 Setelah admin menambah tenant aktif: daftar/tab tenant muncul dari data API → pemesan memilih tenant → menu berganti tanpa full reload. Jika hanya satu tenant, pemilih tenant disembunyikan; nama tenant tetap terlihat.
 Edge: belum ada tenant/menu → empty state; menu tidak tersedia tetap tampil disabled; tenant nonaktif tidak ditampilkan; request tab lama tidak boleh menimpa tab baru; foto gagal memakai placeholder berlabel.

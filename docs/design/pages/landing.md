@@ -30,6 +30,10 @@ padding; gutter olive tetap terlihat pada HP. Hover/segmented/tabel di dalam
 section memakai cream muted. Tidak mengubah font, logo, atau alur bisnis.
 
 ## Tipografi aktif · 2026-11-14
+
+Vendor 21 November: beranda daftar tenant (nama, kategori ringkas, jumlah menu tersedia) dan CTA Lihat menu. Menu tenant pada route tersendiri dengan Kembali ke tenant. Palet/font tetap; tanpa foto tenant palsu dan tanpa auto memilih tenant pertama.
+
+Revisi onboarding 20 November: tata letak katalog tetap, data/foto berasal dari API. Loading, daftar kosong dan gagal jaringan memiliki state tersendiri dan tombol Coba kembali. Tidak fallback ke menu contoh produksi; fixture hanya harness Auth QA terisolasi berbanner.
 Permintaan pengguna ADR-016: Poppins untuk judul, isi, tombol, navigasi dan angka.
 Gunakan berkas lokal weight 400/500/600/700, pertahankan palet olive/cream dan logo.
 Periksa ulang label kategori, header HP dan tabel karena lebar huruf berubah.

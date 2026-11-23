@@ -63,6 +63,7 @@ model Tenant {
   description String @default("") @db.VarChar(1000)
   qrisImageUrl String? @map("qris_image_url") @db.VarChar(2048)
   qrisMerchantName String? @map("qris_merchant_name") @db.VarChar(150)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
   isActive Boolean @default(false) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -80,6 +81,10 @@ model Menu {
   tenantId String @map("tenant_id") @db.Uuid
   name String @db.VarChar(100)
   price Int
+  stock Int @default(0)
+  stockVersion Int @default(1) @map("stock_version")
+  category String @default("Makanan") @db.VarChar(20)
+  description String @default("") @db.VarChar(250)
   photoUrl String? @map("photo_url") @db.VarChar(2048)
   isAvailable Boolean @default(true) @map("is_available")
   isActive Boolean @default(true) @map("is_active")
@@ -113,6 +118,7 @@ model Order {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   orderCode String @unique @default(dbgenerated("app_private.new_order_code()")) @map("order_code") @db.VarChar(13)
   customerName String @map("customer_name") @db.VarChar(100)
+  customerId String? @map("customer_id") @db.Uuid
   orderType OrderType @map("order_type")
   tenantId String @map("tenant_id") @db.Uuid
   total Int
@@ -133,6 +139,8 @@ model Order {
   events OrderEvent[]
   @@unique([id,tenantId])
   @@index([tenantId,createdAt,id],map:"orders_tenant_created_idx")
+  @@index([customerId,createdAt,id],map:"orders_customer_created_idx")
+  @@index([tenantId,updatedAt,id],map:"orders_tenant_updated_idx")
   @@index([tenantId,paymentStatus,createdAt,id],map:"orders_tenant_payment_idx")
   @@map("orders")
   @@schema("public")
@@ -156,6 +164,7 @@ model OrderItem {
 model CheckoutRequest {
   idempotencyKey String @id @map("idempotency_key") @db.Uuid
   requestHash String @map("request_hash") @db.VarChar(64)
+  customerId String? @map("customer_id") @db.Uuid
   responseCiphertext String? @map("response_ciphertext")
   completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
   expiresAt DateTime @default(dbgenerated("(now() + '24:00:00'::interval)")) @map("expires_at") @db.Timestamptz(6)

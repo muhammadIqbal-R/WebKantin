@@ -1,12 +1,12 @@
 # F-06 · Manajemen Tenant dan Akun Tenant
 **Status:** draft
 **Pemilik:** Lead Full-Stack Engineer
-**Terakhir diperbarui:** 2026-11-12
+**Terakhir diperbarui:** 2026-11-20
 **Terkait:** F-05, F-07, F-09, SEC-02
 
 Istilah mengikuti [MASTER](../MASTER.md); detail ini merupakan kontrak rencana, belum endpoint aktif.
 
-**Progres frontend:** Pratinjau /tenant dapat menambah tenant contoh sebagai draft pada sesi admin; belum membuat akun, mengirim undangan atau menyinkronkan katalog user. Rujuk [hasil pratinjau](../frontend-preview.md).
+**Progres 20 November:** /tenant memakai Express untuk tambah/edit, undang akun dan arsip/pulihkan. Setelah tambah, admin masuk `/tenant/:id` untuk menu/foto/stok/QRIS/aktivasi; katalog pelanggan membaca API. Perlu migration dan konfigurasi operator; UAT live belum dilakukan. [Panduan](../staff-management.md).
 
 ## 1. Tujuan
 
@@ -18,10 +18,15 @@ Sebagai admin, saya dapat menambah tenant dan merchant QRIS serta menetapkan aku
 
 ## 3. Alur (happy path + edge case)
 
+Revisi onboarding: setelah tambah tenant, langsung buka halaman `/tenant/:id` untuk menu di tenant tersebut (foto, harga, kategori, deskripsi, stok) dan QRIS/merchant. Draft tetap tersimpan bila setup belum selesai; aktivasi hanya setelah QRIS dan menu siap. [Detail](../staff-management.md).
+
 Setup awal menyediakan satu tenant pada outlet kantin fakultas. Penambahan berikutnya: admin login → buka daftar tenant → Tambah tenant → outlet kantin fakultas terpilih → isi identitas tenant → unggah QRIS via API → simpan merchant → undang akun tenant → isi menu melalui F-07 → aktifkan tenant siap jual.
 Edge: tenant tanpa QRIS boleh disimpan sebagai persiapan namun checkout ditolak; email sudah terdaftar → 409/review akun; provisioning Auth gagal → retry/kompensasi tanpa akun scope setengah jadi; hapus tenant = nonaktifkan, sejarah order tetap ada; pindah outlet tidak mengubah history order.
 
 ## 4. Kontrak API (endpoint, request, response)
+
+Revisi implementasi 2026-11-20: [pengelolaan operasional](../staff-management.md).
+Tambah tenant melalui API menjadi draft; `archived` pada PATCH mengarsipkan atau memulihkan tanpa menghapus history. GET tenant diizinkan untuk tenant dengan hasil scope sendiri; mutasi tenant hanya admin. Undangan akun adalah aksi terpisah yang eksplisit.
 
 Admin Pengelola JWT: `GET /api/admin/tenants` TenantListQuerySchema → TenantListResponseSchema; `GET /api/admin/tenants/:id` → TenantSchema; `POST /api/admin/tenants` CreateTenantRequestSchema → 201 TenantSchema; `PATCH /api/admin/tenants/:id` UpdateTenantRequestSchema → 200 TenantSchema; `DELETE /api/admin/tenants/:id` → 204 soft delete. IdParamsSchema pada resource path.
 `POST /api/admin/tenant-accounts` CreateTenantAccountRequestSchema `{tenant_id,email}` → 201 MeResponseSchema. Supabase Auth Admin invite dijalankan API, bukan client. Initial admin diprovision terkontrol di M1.
@@ -53,12 +58,12 @@ Integrasi: inisialisasi satu tenant lalu admin menambah tenant kedua pada outlet
 
 Implementasi database: [SQL dan panduan pemasangan](../../infra/supabase/README.md),
 [mapping data](../data-model.md), dan [24 tes lokal](../database-validation.md).
-Endpoint/layanan fitur belum dihubungkan; status spesifikasi tetap draft.
+Implementasi endpoint pengelolaan tersedia lokal; status spesifikasi tetap draft dan UAT live belum dilakukan.
 
 
-Audit QA: Tenant baru bisa dibuat sebagai draft; hapus/arsip draft dan kelengkapan QRIS belum tersedia. Toggle tenant awal mengizinkan aktivasi meski gambar QRIS kosong (T-05). [Matriks/bukti](../qa/ACCEPTANCE-2026-11-12.md).
+Audit QA historis 12 November: Tenant baru bisa dibuat sebagai draft; hapus/arsip draft dan kelengkapan QRIS belum tersedia. Toggle tenant awal mengizinkan aktivasi meski gambar QRIS kosong (T-05). [Matriks/bukti](../qa/ACCEPTANCE-2026-11-12.md). Revisi 20 November menambah arsip dan menolak aktivasi bila QRIS belum lengkap; instalasi/UAT live masih diperlukan.
 
 Penegasan operator 2026-11-14: pemakai akhir pengelola kantin memperoleh akun
 Admin Pengelola. Ia dapat menambah tenant dan akun tenant melalui web-admin,
 lalu memasukkan menu tenant melalui F-07, tanpa bantuan developer/deploy ulang.
-Pratinjau saat ini belum membuat akun nyata atau menyimpan data ke database.
+Revisi 20 November menyediakan kode API penyimpanan dan undangan; agen tidak membuat akun atau memutasi database live saat pengujian.

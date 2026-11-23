@@ -7,6 +7,11 @@
 **Revisi terbaru:** akun pelanggan minimal wajib untuk checkout; [rincian](../customer-accounts.md)
 mengatasi ketentuan tanpa login di draft sebelumnya. Baseline DB tidak di-reset.
 
+Audit 23 November: keranjang menyimpan ID menu, jumlah, dan cara pesan pada tab
+yang sama agar bertahan saat login atau reload. Logout mengosongkan keranjang.
+Checkout menampilkan item hilang atau stok berubah dan memberi aksi koreksi
+sebelum mencoba ulang. Harga dan stok final tetap divalidasi API.
+
 Istilah mengikuti [MASTER](../MASTER.md); detail ini merupakan kontrak rencana, belum endpoint aktif.
 
 **Progres frontend:** Pratinjau /checkout memvalidasi nama/cara pesan dan membuat order contoh pada state lokal; belum ada checkout API atau transaksi database. Rujuk [hasil pratinjau](../frontend-preview.md).
@@ -25,6 +30,8 @@ Happy path: edit qty → isi nama dan order_type → POST checkout dengan idempo
 Edge: item tidak aktif/tidak tersedia atau QRIS belum siap → 409 tanpa order parsial; retry jaringan memakai key sama; payload berbeda/key sama → 409; nama kosong/item duplikat → 400; tab ganda ditangani idempotency. Harga final adalah harga DB saat checkout, selalu ditampilkan sebelum pembayaran manual.
 
 ## 4. Kontrak API (endpoint, request, response)
+
+Revisi 21 November: [vendor launch](../vendor-launch.md) menetapkan ownership JWT, checkout persisten, replay terenkripsi dan pengurangan stok atomik. Mengatasi keterangan demo/checkout anonim historis di bawah.
 
 Revisi terbaru: checkout operasional wajib Authorization Bearer JWT pelanggan.
 Sub diverifikasi API dan menjadi owner order; linkage DB perlu migration tambahan.

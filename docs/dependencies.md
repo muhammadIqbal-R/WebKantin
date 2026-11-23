@@ -64,3 +64,8 @@ Storage, jaringan atau pengiriman event Realtime Supabase secara live.
 
 Revisi akun pelanggan: @supabase/supabase-js 2.119.0 hanya web-user untuk Auth
 session/daftar/masuk/logout. Tidak dipakai untuk Data API atau Storage mutation.
+# Tambahan runtime pengelolaan · 2026-11-20
+
+Media onboarding memakai busboy (parser multipart streaming dengan batas file/field) dan sharp (validasi decode/pixel, re-encode untuk JPEG/PNG/WebP). Signed upload Storage berjalan di server; tidak menambah client Storage frontend. Versi exact dan binary sharp dikunci pnpm. [Batas sharp](https://sharp.pixelplumbing.com/api-constructor/).
+
+Express 5 untuk satu pintu mutasi; jose untuk verifikasi JWT JWKS; @prisma/adapter-pg untuk Prisma 7 PostgreSQL; @supabase/supabase-js server untuk undangan/ban akun dan client admin hanya Auth. @types/express untuk boundary TypeScript. Seluruh versi dikunci oleh pnpm. Tidak menambah ORM atau mengganti stack. Rujukan: [driver Prisma](https://www.prisma.io/docs/orm/v7/core-concepts/supported-databases/database-drivers), [Express errors](https://expressjs.com/en/5x/guide/error-handling/), [Auth Admin](https://supabase.com/docs/reference/javascript/auth-admin-updateuserbyid).

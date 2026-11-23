@@ -9,3 +9,4 @@ export {
   Wallet, X,
 } from 'lucide-react';
 
+export { FloorMap } from './floor-map';

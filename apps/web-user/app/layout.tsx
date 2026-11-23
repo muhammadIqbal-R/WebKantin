@@ -16,7 +16,7 @@ const poppins = localFont({
   variable: '--font-poppins',
   display: 'swap',
 });
-export const metadata: Metadata = { title: 'Kantin Vokasi UI — Menu hari ini', description: 'Pilih menu favorit, pesan, dan ambil di kantin fakultas. Pratinjau dengan data contoh.' };
+export const metadata: Metadata = { title: 'Kantin Vokasi UI — Menu hari ini', description: 'Pilih tenant, pesan menu, bayar QRIS, dan pantau pesanan di kantin fakultas.' };
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="id" className={poppins.variable}>

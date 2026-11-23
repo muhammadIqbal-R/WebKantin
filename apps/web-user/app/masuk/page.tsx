@@ -4,11 +4,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CustomerSignInSchema, CustomerSignUpSchema } from '@kantin/shared';
 import { ArrowRight, Button, Field } from '@kantin/ui';
+import { useDemo } from '@kantin/ui/demo';
 import { getCustomerAuthClient } from '../../lib/supabase';
 import { useCustomerAuth } from '../../components/customer-auth';
 export default function CustomerSignInPage() {
   const router = useRouter();
   const { user, loading } = useCustomerAuth();
+  const { cart } = useDemo();
+  const destination = Object.keys(cart).length ? '/checkout' : '/';
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -31,18 +34,18 @@ export default function CustomerSignInPage() {
         const { data, error: failure } = await client.auth.signUp({ email: input.email, password: input.password, options: { data: { display_name: input.display_name }, emailRedirectTo: window.location.origin + '/masuk' } });
         if (failure) { setError('Pendaftaran belum dapat diproses. Periksa isian atau coba lagi nanti.'); return; }
         setPassword(''); setConfirmation('');
-        if (data.session) { router.replace('/checkout'); return; }
+        if (data.session) { router.replace(destination); return; }
         setMessage('Jika pendaftaran dapat diproses, tautan konfirmasi dikirim ke email Anda. Periksa inbox sebelum masuk.');
       } else {
         const input = CustomerSignInSchema.parse(parsed.data);
         const { error: failure } = await client.auth.signInWithPassword({ email: input.email, password: input.password });
         if (failure) { setError('Belum dapat masuk. Periksa email, password, dan konfirmasi email Anda.'); return; }
-        setPassword(''); router.replace('/checkout');
+        setPassword(''); router.replace(destination);
       }
     } catch { setError('Layanan belum dapat dihubungi. Periksa koneksi lalu coba kembali.'); }
     finally { setBusy(false); }
   }
-  if (!loading && user) return <section className="auth-panel"><h1>Anda sudah masuk</h1><p className="muted">{user.email}</p><div className="form-actions"><Button asChild><Link href="/checkout">Lanjut checkout<ArrowRight /></Link></Button><Button variant="outline" asChild><Link href="/akun">Lihat akun</Link></Button></div></section>;
+  if (!loading && user) return <section className="auth-panel"><h1>Anda sudah masuk</h1><p className="muted">{user.email}</p><div className="form-actions"><Button asChild><Link href={destination}>{destination === '/checkout' ? 'Lanjut checkout' : 'Pilih tenant'}<ArrowRight /></Link></Button><Button variant="outline" asChild><Link href="/akun">Lihat akun</Link></Button></div></section>;
   return <div className="auth-layout"><section className="auth-intro"><p className="eyebrow">AKUN PELANGGAN</p><h1>Masuk atau buat akun</h1><Link href="/" className="link-action" style={{ marginTop: 'var(--s6)' }}>Kembali ke menu<ArrowRight /></Link></section>
     <section className="auth-panel"><div className="auth-tabs"><button className={mode==='signin'?'active':''} onClick={()=>switchMode('signin')} aria-pressed={mode==='signin'}>Masuk</button><button className={mode==='signup'?'active':''} onClick={()=>switchMode('signup')} aria-pressed={mode==='signup'}>Buat akun</button></div>
       {message ? <p className="auth-notice" role="status">{message}</p> : null}

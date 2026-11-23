@@ -14,4 +14,12 @@ const target = path.join(root,'infra/supabase/setup.sql');
 if (process.argv.includes('--check')) assert.equal(await readFile(target,'utf8'),bundle,'SQL bundle is stale; run pnpm db:bundle');
 else { await mkdir(path.dirname(target),{recursive:true}); await writeFile(target,bundle); }
 console.log(process.argv.includes('--check') ? 'SQL bundle matches canonical migration and seed.' : 'Generated infra/supabase/setup.sql');
+const upgrade = await readFile(path.join(root,'apps/api/prisma/migrations/202611200001_management/migration.sql'),'utf8');
+const upgradeTarget = path.join(root,'infra/supabase/management-upgrade.sql');
+if(process.argv.includes('--check')) assert.equal(await readFile(upgradeTarget,'utf8'),upgrade,'Management upgrade is stale; run pnpm db:bundle');
+else await writeFile(upgradeTarget,upgrade);
+const ordersUpgrade=await readFile(path.join(root,'apps/api/prisma/migrations/202611210001_orders/migration.sql'),'utf8');
+const ordersTarget=path.join(root,'infra/supabase/orders-upgrade.sql');
+if(process.argv.includes('--check'))assert.equal(await readFile(ordersTarget,'utf8'),ordersUpgrade,'Orders upgrade is stale; run pnpm db:bundle');
+else await writeFile(ordersTarget,ordersUpgrade);
 

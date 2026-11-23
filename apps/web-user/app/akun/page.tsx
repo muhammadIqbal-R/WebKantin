@@ -18,5 +18,5 @@ export default function CustomerAccountPage() {
     if (await signOut()) { router.replace('/'); return; }
     setError('Belum dapat keluar. Coba lagi.');setBusy(false);
   }
-  return <div className="auth-layout"><div className="auth-intro"><p className="eyebrow">AKUN PELANGGAN</p><h1>{name.success?name.data:'Pelanggan kantin'}</h1><p>{user.email}</p></div><section className="auth-panel stack"><h2>Akun Anda</h2><p className="muted">Katalog dan pesanan masih data contoh. Riwayat pesanan akun akan tersedia setelah API terhubung.</p><Button onClick={()=>router.push('/checkout')}>Lanjut checkout</Button><Button variant="outline" onClick={logout} loading={busy}>Keluar</Button>{error?<p role="alert" className="form-error">{error}</p>:null}</section></div>;
+  return <div className="auth-layout"><div className="auth-intro"><p className="eyebrow">AKUN PELANGGAN</p><h1>{name.success?name.data:'Pelanggan kantin'}</h1><p>{user.email}</p></div><section className="auth-panel stack"><h2>Akun Anda</h2><p className="muted">Lihat pesanan dan status pembayaran melalui halaman Pesanan. Akun ini tidak memberi akses pengelolaan tenant.</p><Button onClick={()=>router.push('/checkout')}>Lanjut checkout</Button><Button variant="outline" onClick={logout} loading={busy}>Keluar</Button>{error?<p role="alert" className="form-error">{error}</p>:null}</section></div>;
 }

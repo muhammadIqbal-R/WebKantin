@@ -5,6 +5,8 @@ SQL/RLS sudah diimplementasikan dan diuji pada PostgreSQL embedded lokal; belum 
 
 ## RLS untuk semua tabel
 
+Revisi 21 November: [vendor launch](../vendor-launch.md) menambah SELECT authenticated khusus owner order/staf aktif, restrictive policy dan cek Auth banned; tidak menambah izin mutasi. Custom tracker lama tidak menjadi syarat akun baru.
+
 ENABLE ROW LEVEL SECURITY dan FORCE ROW LEVEL SECURITY di tabel inti dan tabel
 pendukung. Deny by default. Bedakan role DDL, role runtime API, role Auth Supabase,
 dan role order_tracker. Jangan memberi browser mutation grants/RPC bypass.

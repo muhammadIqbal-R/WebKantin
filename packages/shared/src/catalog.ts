@@ -44,6 +44,7 @@ export const AdminMenuQuerySchema = PaginationQuerySchema.extend({ tenant_id: Id
 export const TenantListResponseSchema = z.strictObject({ data: z.array(TenantSchema), next_cursor: IdSchema.nullable() });
 export const MenuListResponseSchema = z.strictObject({ data: z.array(MenuSchema), next_cursor: IdSchema.nullable() });
 export const OutletListResponseSchema = z.strictObject({ data: z.array(OutletSchema), next_cursor: IdSchema.nullable() });
+export const FloorMapResponseSchema = z.strictObject({ image_url: HttpsUrlSchema });
 export type Tenant = z.infer<typeof TenantSchema>;
 export type Menu = z.infer<typeof MenuSchema>;
 export type Outlet = z.infer<typeof OutletSchema>;

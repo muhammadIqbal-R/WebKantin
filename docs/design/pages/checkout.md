@@ -21,3 +21,9 @@ konfirmasi. Setelah membuat order contoh, route /pesanan menampilkan instruksi
 QRIS placeholder (bukan QR pembayaran) dan tombol pelaporan simulasi. Field wajib
 divalidasi dengan schema shared. Tidak menyebut transaksi sukses/terverifikasi
 sebelum state contoh diubah secara eksplisit. Data tidak tersimpan setelah refresh.
+
+Audit 23 November: keranjang aktif bertahan saat login atau reload tab. Checkout
+menampilkan aksi hapus untuk item yang hilang dari katalog, serta pesan/kontrol
+jumlah untuk stok berubah. Login dari menu/akun kembali ke beranda bila keranjang
+kosong. Halaman pesanan menampilkan pesan khusus saat pembayaran ditolak dan
+tombol retry jika gambar QRIS gagal.

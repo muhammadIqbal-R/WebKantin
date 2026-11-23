@@ -1,5 +1,7 @@
 # Akun pelanggan minimal · perubahan kebutuhan
 
+Revisi vendor 21 November: [orders-upgrade dan alur akun](vendor-launch.md) menambah ownership Auth dan RLS akun serta endpoint order persisten. Uraian kebutuhan migration di bawah merupakan konteks sebelum implementasi; pemasangan live tetap oleh operator.
+
 **Status:** draft · 2026-11-12 · terkait F-02, F-04, F-09.
 Instruksi terbaru pengguna mengganti non-goal awal “pemesan tanpa login”.
 

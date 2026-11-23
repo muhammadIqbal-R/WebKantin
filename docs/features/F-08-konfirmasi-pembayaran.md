@@ -20,9 +20,15 @@ Sebagai tenant, saya melihat klaim pembayaran order sendiri, mencocokkan mutasi,
 
 Happy path: filter pending → cek merchant/nominal/mutasi eksternal → accept → order diproses/paid dan audit terisi → siap → selesai.
 Reject: pending → menunggu_bayar/rejected, reason wajib; pemesan dapat lapor ulang. Batal hanya sebelum paid; pending yang dibatalkan menjadi dibatalkan/rejected dengan event alasan.
+
+Audit 23 November: detail pesanan staf memuat nama merchant dari snapshot
+pembayaran. Pemeriksaan mutasi masih bisa dilakukan saat gambar QRIS sementara
+gagal dimuat. Panel memberi tahu staf bahwa alasan penolakan terlihat oleh pemesan.
 Edge: dua operator klik bersamaan → satu commit, lainnya 409; pembayaran belum pending → 409; tenant lain → 404; terminal tidak dapat diubah; tidak ada paid→batal/refund di V1.
 
 ## 4. Kontrak API (endpoint, request, response)
+
+Revisi 21 November: [vendor launch](../vendor-launch.md) menghubungkan konfirmasi/status dan notifikasi dengan order persisten; bukti bayar tetap diperiksa manual, audio hanya setelah opt-in.
 
 `GET /api/admin/orders` AdminOrderQuerySchema (tenant_id/status/payment_status/cursor/limit) → 200 AdminOrderListResponseSchema; `GET /api/admin/orders/:id` IdParamsSchema → OrderDetailResponseSchema.
 `PATCH /api/admin/orders/:id/confirm-payment` ConfirmPaymentRequestSchema `{expected_version:2,decision:"accept"}` atau `{expected_version:2,decision:"reject",reason:"Mutasi belum ditemukan"}` → 200 OrderSchema.

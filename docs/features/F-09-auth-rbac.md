@@ -1,7 +1,7 @@
 # F-09 · Autentikasi dan Otorisasi
 **Status:** draft
 **Pemilik:** Lead Full-Stack Engineer
-**Terakhir diperbarui:** 2026-11-12
+**Terakhir diperbarui:** 2026-11-20
 **Terkait:** F-02, F-04, F-06, F-07, F-08, SEC-01, SEC-02
 
 Istilah mengikuti [MASTER](../MASTER.md). Revisi kebutuhan terbaru:
@@ -30,6 +30,8 @@ aktif → RBAC/tenant. Invalid/expired token ditolak; staf nonaktif tidak mendap
 akses walaupun sesi Auth belum habis. Tidak ada self-signup role pengelola.
 
 ## 4. Kontrak API (endpoint, request, response)
+
+Revisi implementasi 2026-11-20: [pengelolaan operasional](../staff-management.md) menetapkan GET /api/me, daftar pengguna dan PATCH status aktif. Hapus berarti nonaktifkan yang dapat dipulihkan, bukan hard delete Auth/history. Admin tidak dapat menonaktifkan dirinya. Role tenant berasal profil DB aktif pada setiap request; login tidak mempunyai pemilih role.
 
 Auth session/signup/signin/signout melalui Supabase Auth SDK, pengecualian identitas
 sesuai MASTER; seluruh mutation bisnis tetap Express-only.

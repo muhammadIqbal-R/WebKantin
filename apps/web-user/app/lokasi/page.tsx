@@ -1,18 +1,68 @@
 'use client';
-import { Badge, Clock3, MapPin, Store, UtensilsCrossed } from '@kantin/ui';
-import { useDemo } from '@kantin/ui/demo';
+
+import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
+import { FloorMapResponseSchema, OutletListResponseSchema, TenantListResponseSchema, type Outlet, type Tenant } from '@kantin/shared';
+import { Button, FloorMap, Store } from '@kantin/ui';
+import { pages } from '../../components/live-catalog';
+
+const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '');
+
 export default function LocationPage() {
-  const { tenants } = useDemo();
+  const [outlets, setOutlets] = useState<Outlet[] | null>(null);
+  const [tenants, setTenants] = useState<Tenant[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [revision, setRevision] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let active = true;
+    async function load() {
+      if (!base) throw new Error('API URL missing');
+      const data = await pages(base, '/api/outlets', OutletListResponseSchema, controller.signal);
+      if (active) setOutlets(data);
+      if (!data.length) return;
+      const sellers = await pages(base, '/api/tenants', TenantListResponseSchema, controller.signal);
+      if (active) setTenants(sellers);
+    }
+    void load().catch(() => { if (active) setFailed(true); }).finally(() => clearTimeout(timeout));
+    return () => { active = false; clearTimeout(timeout); controller.abort(); };
+  }, [revision]);
+
   return <>
-    <div className="page-intro"><div><div className="eyebrow">LOKASI / KANTIN VOKASI UI</div><h1>Lokasi kantin</h1><p>Lihat posisi tenant dan area makan pada denah contoh.</p></div><Badge>Denah ilustrasi</Badge></div>
-    <div className="location-grid"><section className="panel"><div className="panel-header"><h2>Denah kantin fakultas</h2><span className="small muted">Contoh tata letak</span></div>
-      <div className="floor-map" role="img" aria-label="Denah contoh: Warung Bu Sari di sisi kiri pintu masuk, area makan di tengah. Posisi sebenarnya belum diisi.">
-        <div className="map-building active"><Store /><strong>{tenants[0]?.name}</strong><Badge tone="success">Tenant awal</Badge></div><div className="map-building"><Store /><span>Area tenant berikutnya</span></div>
-        <div className="map-path"><Arrow />Jalur masuk kantin<Arrow /></div>
-        <div className="map-table"><UtensilsCrossed />Area makan bersama</div><div className="map-table"><UtensilsCrossed />Area makan bersama</div>
-      </div><p className="small muted" style={{ marginTop: 'var(--s4)' }}>Posisi di atas hanya ilustrasi. Denah asli dapat ditambahkan pengelola nanti.</p>
-    </section><aside className="stack"><section className="panel"><h2>Informasi kantin</h2><div className="settings-list" style={{ marginTop: 'var(--s5)' }}><div className="settings-row"><div><strong className="row"><MapPin />Kantin Fakultas</strong><p>Lokasi lengkap akan dilengkapi pengelola.</p></div></div><div className="settings-row"><div><strong className="row"><Clock3 />08.00–16.00</strong><p>Jam operasional contoh, Senin–Jumat.</p></div></div></div></section>
-      <section className="panel"><h2>Tenant tersedia</h2>{tenants.filter((tenant) => tenant.is_active).map((tenant) => <div className="tenant-detail" style={{ marginTop: 'var(--s5)', marginBottom: 0 }} key={tenant.id}><span className="tenant-avatar">BS</span><div><h3>{tenant.name}</h3><p>{tenant.tagline}</p></div></div>)}</section></aside></div>
+    <div className="page-intro"><h1>Lokasi kantin</h1></div>
+    {failed && <section className="panel stack">
+      <p role="alert">Informasi lokasi belum dapat dimuat seluruhnya.</p>
+      <Button variant="outline" onClick={() => { setFailed(false); setRevision(value => value + 1); }}>Coba kembali</Button>
+    </section>}
+    {!outlets && !failed && <p role="status">Memuat lokasi…</p>}
+    {outlets?.length === 0 && <section className="panel"><p>Lokasi belum ditambahkan pengelola.</p></section>}
+    {outlets?.map(outlet => {
+      const sellers = tenants?.filter(tenant => tenant.outlet_id === outlet.id);
+      return <section className="panel stack" key={outlet.id}>
+        <h2>{outlet.name}</h2>
+        <p>{outlet.location}</p>
+        {outlet.floor_map_url
+          ? <MapImage key={outlet.floor_map_url} outlet={outlet} />
+          : <p className="muted">Denah belum ditambahkan.</p>}
+        {sellers?.map(tenant => <div className="settings-row" key={tenant.id}>
+          <strong className="row"><Store />{tenant.name}</strong>
+          <Button asChild variant="outline" size="sm"><Link href={'/tenant/' + tenant.id}>Lihat menu</Link></Button>
+        </div>)}
+        {sellers?.length === 0 && <p className="small muted">Belum ada tenant aktif di lokasi ini.</p>}
+      </section>;
+    })}
   </>;
 }
-function Arrow() { return <span aria-hidden="true">↑</span>; }
+
+function MapImage({ outlet }: { outlet: Outlet }) {
+  const load = useCallback(async () => {
+    const response = await fetch(base + '/api/outlets/' + outlet.id + '/floor-map', {
+      cache: 'no-store', signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw new Error('Map request failed');
+    return FloorMapResponseSchema.parse(await response.json()).image_url;
+  }, [outlet.id]);
+  return <FloorMap name={outlet.name} load={load} />;
+}

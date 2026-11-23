@@ -21,6 +21,10 @@ Sebagai pemesan, saya melihat merchant dan nominal setiap order lalu melaporkan 
 Happy path: tampilkan snapshot QRIS/merchant/total → pemesan membayar lewat aplikasi pembayaran → klik Saya sudah bayar → API mengubah menunggu_bayar/unpaid atau rejected menjadi menunggu_konfirmasi/pending_confirmation.
 Edge: klaim ulang saat pending → respons state saat ini bila idempotent; sudah paid/terminal → 409; versi stale → 409 lalu refresh; gambar gagal → tampilkan retry dan jangan mengklaim pembayaran sukses; ditolak → alasan aman dari API dan kesempatan bayar/lapor ulang sesuai F-08.
 
+Audit 23 November: respons detail milik pelanggan memuat `payment_rejection_reason`
+saat klaim ditolak. API membaca hanya alasan dari event penolakan terakhir.
+Panel memberi label bahwa alasan tersebut ditampilkan kepada pelanggan.
+
 ## 4. Kontrak API (endpoint, request, response)
 
 `GET /api/orders/:code` (F-04) menyediakan order/items; QRIS snapshot dibaca melalui `GET /api/orders/:id/payment` dengan IdParamsSchema + X-Order-Access-Token → 200 PaymentInstructionsResponseSchema `{order_id,total,qris:{image_url,merchant_name}}`.

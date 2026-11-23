@@ -1,42 +1,30 @@
 'use client';
-import { useState, type FormEvent } from 'react';
-import { CreateTenantAccountRequestSchema, CreateTenantRequestSchema } from '@kantin/shared';
-import { Badge, Button, CheckCircle2, CircleAlert, EmptyState, Field, Modal, Plus, QrCode, Store, UtensilsCrossed } from '@kantin/ui';
-import { OUTLET_ID, useDemo } from '@kantin/ui/demo';
-export default function TenantsPage() {
-  const { tenants, menus, role, addTenant, toggleTenant } = useDemo();
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [email, setEmail] = useState('');
-  const [error, setError] = useState('');
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const parsed = CreateTenantRequestSchema.safeParse({ outlet_id: OUTLET_ID, name, description, qris_image_url: null, qris_merchant_name: null });
-    const account = CreateTenantAccountRequestSchema.shape.email.safeParse(email);
-    if (!parsed.success || !account.success) { setError('Isi nama tenant minimal 2 karakter dan email pengelola yang valid.'); return; }
-    addTenant(parsed.data.name, parsed.data.description, account.data); setOpen(false); setName(''); setDescription(''); setEmail(''); setError('');
-  }
-  if (role === 'tenant') return <section className="panel"><EmptyState icon={<Store />} title="Halaman khusus Admin Pengelola" description="Akun tenant mengelola menu dan pesanan miliknya. Pengelolaan tenant dilakukan admin." /></section>;
-  return <>
-    <div className="page-intro"><div><div className="eyebrow text-action">PENGELOLAAN TENANT</div><h1 style={{ marginTop: 'var(--s2)' }}>Tenant kantin</h1><p>Tambahkan tenant dan tentukan akun pengelolanya.</p></div><Button onClick={() => { setOpen(true); setError(''); }}><Plus />Tambah tenant</Button></div>
-    <div className="notice" style={{ marginBottom: 'var(--s6)' }}><Store /><span><strong>Kantin Fakultas</strong> · {tenants.length} tenant contoh, {tenants.filter((tenant) => tenant.is_active).length} aktif. Tenant baru dimulai sebagai draft.</span></div>
-    <div className="admin-tenant-grid">{tenants.map((tenant) => {
-      const count = menus.filter((menu) => menu.tenant_id === tenant.id && menu.is_active).length;
-      return <article className="panel" key={tenant.id}><div className="tenant-detail"><span className="tenant-avatar">{tenant.name.split(' ').slice(0,2).map((part) => part[0]).join('')}</span><div><h2>{tenant.name}</h2><p>Kantin Fakultas</p></div><Badge tone={tenant.is_active ? 'success' : 'neutral'}>{tenant.is_active ? 'Aktif' : 'Draft'}</Badge></div>
-        <p className="small muted">{tenant.description || 'Deskripsi tenant belum ditambahkan.'}</p>
-        <ul className="tenant-checklist"><li><CheckCircle2 />Profil tenant diisi</li><li className={count ? '' : 'pending'}>{count ? <CheckCircle2 /> : <CircleAlert />}{count} menu ditambahkan</li>
-          <li className="pending"><QrCode />QRIS masih placeholder</li><li><CheckCircle2 />Email pengelola diisi</li></ul>
-        <p className="small muted">{tenant.email}</p><div className="tenant-footer" style={{ marginTop: 'var(--s4)' }}><span className="row small muted"><UtensilsCrossed />{count} menu</span>
-          <button className="toggle" aria-pressed={tenant.is_active} disabled={!tenant.qris_merchant_name || count === 0} aria-label={'Status aktif ' + tenant.name} onClick={() => toggleTenant(tenant.id)}><span className="toggle-track" />{tenant.is_active ? 'Aktif' : tenant.qris_merchant_name && count > 0 ? 'Nonaktif' : 'Lengkapi setup'}</button></div>
-      </article>;
-    })}</div>
-    <Modal open={open} onOpenChange={setOpen} title="Tambah tenant baru" description="Tambahkan data contoh untuk penjual berikutnya di kantin fakultas.">
-      <form className="stack" onSubmit={submit}><Field label="Nama tenant"><input className="input" required minLength={2} maxLength={100} value={name} onChange={(event) => setName(event.target.value)} placeholder="Contoh: Kedai Rasa" /></Field>
-        <Field label="Deskripsi"><textarea className="textarea" maxLength={1000} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ceritakan singkat menu atau ciri khas tenant" /></Field>
-        <Field label="Email pengelola" hint="Pada pratinjau ini, tidak ada undangan atau akun yang dibuat."><input className="input" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="pengelola@example.com" /></Field>
-        <Field label="Lokasi"><input className="input" readOnly value="Kantin Fakultas" /></Field><p className="notice small"><QrCode />Setelah ditambahkan, lengkapi menu dan QRIS sebelum tenant menerima pesanan.</p>
-        {error ? <p className="form-error" role="alert">{error}</p> : null}<div className="form-actions"><Button variant="outline" onClick={() => setOpen(false)}>Batal</Button><Button type="submit"><Plus />Tambahkan tenant</Button></div></form>
-    </Modal>
-  </>;
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCallback, useState, type FormEvent } from 'react';
+import { ManagedTenantsResponseSchema, ManagedMenusResponseSchema, OutletListResponseSchema, ManagedTenantResponseSchema, MeResponseSchema, type ManagedTenant } from '@kantin/shared';
+import { Badge, Button, Field, Modal, Plus, Store } from '@kantin/ui';
+import { collect, useLoad, useManagement } from '../../components/management';
+import { DataState } from '../../components/data-state';
+import {VendorImport} from '../../components/vendor-import';
+const single=ManagedTenantResponseSchema;
+export default function TenantsPage(){
+  const {request,actor}=useManagement();const router=useRouter();
+  const load=useCallback(async()=>{const [tenants,menus,outlets]=await Promise.all([collect(request,'/api/admin/tenants',ManagedTenantsResponseSchema),collect(request,'/api/admin/menus',ManagedMenusResponseSchema),collect(request,'/api/admin/outlets',OutletListResponseSchema)]);return {tenants,menus,outlets};},[request]);
+  const state=useLoad(load);const [form,setForm]=useState<'new'|'edit'|'invite'|null>(null),[selected,setSelected]=useState<ManagedTenant|null>(null),[confirm,setConfirm]=useState<ManagedTenant|null>(null);
+  const [name,setName]=useState(''),[description,setDescription]=useState(''),[email,setEmail]=useState(''),[outlet,setOutlet]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+  if(actor?.role!=='admin_pengelola')return <section className="panel"><h1>Akses khusus admin</h1></section>;
+  function open(kind:'new'|'edit'|'invite',tenant:ManagedTenant|null){setSelected(tenant);setName(tenant?.name??'');setDescription(tenant?.description??'');setEmail('');setOutlet(tenant?.outlet_id??state.data?.outlets[0]?.id??'');setError('');setForm(kind);}
+  async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setError('');try{
+    if(form==='invite'&&selected){await request('/api/admin/tenant-accounts',MeResponseSchema,'POST',{tenant_id:selected.id,email});setNotice('Undangan akun tenant dikirim.');}
+    else if(form==='edit'&&selected){await request('/api/admin/tenants/'+selected.id,single,'PATCH',{name,description});setNotice('Tenant diperbarui.');}
+    else {const created=await request('/api/admin/tenants',single,'POST',{outlet_id:outlet,name,description,qris_image_url:null,qris_merchant_name:null});setForm(null);router.push('/tenant/'+created.data.id);return;}
+    setForm(null);await state.reload();
+  }catch(failure:unknown){setError(failure instanceof Error?failure.message:'Perubahan gagal.');}finally{setBusy(false);}}
+  async function change(tenant:ManagedTenant,archived?:boolean){setBusy(true);setError('');try{await request('/api/admin/tenants/'+tenant.id,single,'PATCH',archived===undefined?{is_active:!tenant.is_active}:{archived});setConfirm(null);setNotice(archived===undefined?'Status tenant diperbarui.':archived?'Tenant diarsipkan.':'Tenant dipulihkan sebagai draft.');await state.reload();}catch(failure:unknown){setError(failure instanceof Error?failure.message:'Perubahan gagal.');}finally{setBusy(false);}}
+  return <><div className="page-intro"><div><h1>Tenant kantin</h1><p>Kelola penjual dan akun tenant.</p></div><Button disabled={state.loading||!!state.error||busy} onClick={()=>open('new',null)}><Plus/>Tambah tenant</Button></div><DataState {...state} retry={state.reload}/>{state.data?<VendorImport outlets={state.data.outlets} done={state.reload}/>:null}{notice?<p className="notice" role="status">{notice}</p>:null}{error&&!form&&!confirm?<p className="form-error" role="alert">{error}</p>:null}
+    <div className="admin-tenant-grid">{state.data?.tenants.map(tenant=>{const menus=(state.data?.menus??[]).filter(menu=>menu.tenant_id===tenant.id),count=menus.length,stock=menus.reduce((sum,menu)=>sum+menu.stock,0);const ready=!!tenant.qris_image_url&&!!tenant.qris_merchant_name&&menus.some(menu=>menu.stock>0&&menu.is_available);return <article className="panel stack" key={tenant.id}><div className="row between wrap"><h2 className="row"><Store/>{tenant.name}</h2><Badge tone={tenant.is_active?'success':'neutral'}>{tenant.archived_at?'Arsip':tenant.is_active?'Aktif':'Draft'}</Badge></div><p className="small muted">{tenant.description||'Belum ada deskripsi.'}</p><p>{count} menu · {stock} porsi</p>{!tenant.archived_at&&!ready?<p className="small muted">Lengkapi QRIS dan menu dengan stok melalui Kelola tenant.</p>:null}<div className="form-actions"><Button size="sm" asChild><Link href={'/tenant/'+tenant.id}>Kelola tenant</Link></Button><Button size="sm" variant="outline" disabled={busy||!!tenant.archived_at} onClick={()=>open('edit',tenant)}>Edit</Button><Button size="sm" variant="outline" disabled={busy||!!tenant.archived_at} onClick={()=>open('invite',tenant)}>Undang akun</Button>{!tenant.archived_at?<Button size="sm" variant="outline" disabled={busy||(!tenant.is_active&&!ready)} onClick={()=>void change(tenant)}>{tenant.is_active?'Nonaktifkan':'Aktifkan'}</Button>:null}<Button size="sm" variant={tenant.archived_at?'outline':'danger'} disabled={busy} onClick={()=>{setConfirm(tenant);setError('');}}>{tenant.archived_at?'Pulihkan':'Arsipkan'}</Button></div></article>;})}</div>
+    {!state.loading&&!state.error&&state.data?.tenants.length===0?<section className="panel"><p>Belum ada tenant. Tambahkan tenant pertama.</p></section>:null}
+    <Modal open={form!==null} onOpenChange={open=>{if(!busy&&!open)setForm(null);}} title={form==='invite'?'Undang pengelola tenant':form==='edit'?'Edit tenant':'Tambah tenant'} description={selected?.name??'Tenant baru dimulai sebagai draft.'}><form className="stack" onSubmit={submit}>{form==='invite'?<Field label="Email pengelola"><input className="input" type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></Field>:<><Field label="Nama tenant"><input className="input" required minLength={2} maxLength={100} value={name} onChange={e=>setName(e.target.value)}/></Field><Field label="Deskripsi"><textarea className="textarea" maxLength={1000} value={description} onChange={e=>setDescription(e.target.value)}/></Field>{form==='new'?<Field label="Lokasi kantin"><select className="select" required value={outlet} onChange={e=>setOutlet(e.target.value)}>{state.data?.outlets.filter(entry=>entry.is_active).map(entry=><option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></Field>:null}</>}{error?<p className="form-error" role="alert">{error}</p>:null}<div className="form-actions"><Button variant="outline" disabled={busy} onClick={()=>setForm(null)}>Batal</Button><Button type="submit" loading={busy}>{form==='invite'?'Kirim undangan':'Simpan tenant'}</Button></div></form></Modal>
+    <Modal open={!!confirm} onOpenChange={open=>{if(!busy&&!open)setConfirm(null);}} title={confirm?.archived_at?'Pulihkan tenant?':'Arsipkan tenant?'} description={confirm?.archived_at?'Tenant dipulihkan sebagai draft.':'Penjualan baru ditutup. Riwayat pesanan tetap tersimpan.'}>{error?<p className="form-error" role="alert">{error}</p>:null}<div className="form-actions"><Button variant="outline" disabled={busy} onClick={()=>setConfirm(null)}>Batal</Button><Button loading={busy} onClick={()=>{if(confirm)void change(confirm,!confirm.archived_at);}}>{confirm?.archived_at?'Pulihkan':'Arsipkan'}</Button></div></Modal></>;
 }

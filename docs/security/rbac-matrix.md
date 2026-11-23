@@ -1,5 +1,7 @@
 # SEC-02 · Matriks RBAC
 
+Revisi pengelolaan 2026-11-20: [kontrak operasional](../staff-management.md). Admin mengelola tenant/pengguna dan semua stok, tenant hanya menu/stok miliknya. Pengguna dinonaktifkan, bukan dihapus permanen. Checkout pelanggan wajib JWT sesuai revisi akun, bukan checkout anonim yang masih tercantum pada matriks historis berikut. Pengujian produksi tetap terpisah dari SQL lokal.
+
 **Status:** draft · **Verifikasi seluruh izin:** belum · 2026-11-12. Istilah: [MASTER](../MASTER.md).
 
 | Aksi | Pemesan + token order | Tenant | Admin Pengelola |

@@ -1,6 +1,11 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "tasks": {
+    "db:generate": { "outputs": ["src/generated/prisma/**"] },
+    "@kantin/api#build": { "dependsOn": ["^build", "db:generate"], "outputs": ["dist/**"] },
+    "@kantin/api#typecheck": { "dependsOn": ["^build", "db:generate"], "outputs": [] },
+    "@kantin/api#test": { "dependsOn": ["^build", "db:generate"], "outputs": [] },
+    "@kantin/api#dev": { "dependsOn": ["^build", "db:generate"], "cache": false, "persistent": true },
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**", "!.next/cache/**"] },
     "dev": { "dependsOn": ["^build"], "cache": false, "persistent": true },
     "lint": { "outputs": [] },

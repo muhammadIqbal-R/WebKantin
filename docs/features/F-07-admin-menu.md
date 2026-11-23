@@ -1,12 +1,12 @@
 # F-07 · Manajemen Menu dan Media
 **Status:** draft
 **Pemilik:** Lead Full-Stack Engineer
-**Terakhir diperbarui:** 2026-11-12
+**Terakhir diperbarui:** 2026-11-20
 **Terkait:** F-01, F-06, SEC-02
 
 Istilah mengikuti [MASTER](../MASTER.md); detail ini merupakan kontrak rencana, belum endpoint aktif.
 
-**Progres frontend:** Pratinjau /menu mendukung tambah/edit/nonaktif menu, toggle ketersediaan dan preview foto; belum ada mutasi API/Storage. Rujuk [hasil pratinjau](../frontend-preview.md).
+**Progres 20 November:** /menu dan `/tenant/:id` memakai Express untuk tambah/edit/nonaktif, stok angka dan foto Storage. Upload file divalidasi server; QRIS privat hanya admin. Perlu migration dan konfigurasi operator; UAT live belum dilakukan. [Panduan](../staff-management.md).
 
 ## 1. Tujuan
 
@@ -18,10 +18,14 @@ Sebagai tenant, saya dapat mengubah nama, harga, foto, dan ketersediaan menu tan
 
 ## 3. Alur (happy path + edge case)
 
+Revisi onboarding: form menu berada di dalam halaman tenant yang dipilih, dengan preview foto, upload melalui Express, simpan URL aset terverifikasi, dan jumlah porsi manual. QRIS hanya admin. Katalog pelanggan membaca tenant/menu aktif dari Express. [Detail media](../staff-management.md).
+
 Happy path: login → list scope tenant → buat/edit menu → upload foto lewat API jika ada → simpan URL asset → invalidate katalog.
 Edge: upload gagal tidak menimpa foto lama; menu nonaktif tidak menerima order baru; perubahan harga tidak mengubah order_items snapshot; percobaan tenant_id asing ditolak; foto kosong menggunakan placeholder.
 
 ## 4. Kontrak API (endpoint, request, response)
+
+Revisi implementasi 2026-11-20: ManagedMenuCreateSchema/ManagedMenuPatchSchema/ManagedMenuSchema serta StockUpdateSchema sesuai [pengelolaan operasional](../staff-management.md). Stok integer per menu, pembaruan versi optimistis, stok nol otomatis Habis. Kategori/deskripsi disimpan DB; upload media dan checkout otomatis masih lingkup lanjutan.
 
 `GET /api/admin/menus` AdminMenuQuerySchema → MenuListResponseSchema; `GET /api/admin/menus/:id` → MenuSchema; `POST /api/admin/menus` CreateMenuRequestSchema → 201 MenuSchema; `PATCH /api/admin/menus/:id` UpdateMenuRequestSchema → 200 MenuSchema; `DELETE /api/admin/menus/:id` → 204 soft delete. IdParamsSchema pada resource path. Tenant/admin JWT wajib.
 `POST /api/admin/uploads?purpose=menu_photo|tenant_qris|floor_map&owner_id=<uuid>`: UploadQuerySchema; multipart satu field file. API memvalidasi metadata turunan file dengan UploadMetadataSchema, magic bytes/decode/reencode, lalu memakai signed upload URL internal ke Storage. 201 UploadResponseSchema `{asset_url}`; tidak mengembalikan signed upload URL ke browser. menu_photo owner_id=tenant_id, tenant_qris owner_id=tenant_id, floor_map owner_id=outlet_id.
@@ -32,6 +36,8 @@ Edge: upload gagal tidak menimpa foto lama; menu nonaktif tidak menerima order b
 `MenuSchema`, `CreateMenuRequestSchema`, `UpdateMenuRequestSchema`, `AdminMenuQuerySchema`, `UploadQuerySchema`, `UploadMetadataSchema`, `UploadResponseSchema`.
 
 ## 6. Aturan Bisnis
+
+Keputusan pengguna 20 November 2026: pengisian ulang stok dilakukan manual, tanpa reset harian. Admin mengisi stok menu seluruh tenant, tenant hanya menunya sendiri. Input adalah jumlah porsi tersedia saat disimpan (menggantikan jumlah lama), bukan tambahan porsi. Stok 0 berarti Habis. Pengurangan stok saat checkout tetap pekerjaan integrasi pemesanan yang terpisah.
 
 Harga integer Rupiah >0. Tenant_id tidak dapat dipindah lewat PATCH. Create menyertakan tenant_id tetapi API mencocokkan users scope; admin memilih tenant secara eksplisit. DELETE menonaktifkan, bukan menghapus history. Foto JPEG/PNG/WebP ≤2 MiB. QRIS dan denah hanya admin; foto menu tenant sendiri/admin. API hanya mengaitkan asset sesuai purpose/owner bucket, tidak menerima arbitrary HTTPS sebagai bukti ownership.
 
@@ -53,7 +59,7 @@ Kontrak: harga negatif/pecahan, unknown key, patch kosong. Integrasi: CRUD menu 
 
 Implementasi database: [SQL dan panduan pemasangan](../../infra/supabase/README.md),
 [mapping data](../data-model.md), dan [24 tes lokal](../database-validation.md).
-Endpoint/layanan fitur belum dihubungkan; status spesifikasi tetap draft.
+Endpoint menu/stok/foto/QRIS tersedia lokal; upload denah dan UAT live tetap belum selesai. Status spesifikasi tetap draft.
 
 
 Audit QA: CRUD lokal dan is_available lulus; hapus menu adalah soft-delete. Stok angka/reservasi stok belum diimplementasikan. [Matriks/bukti](../qa/ACCEPTANCE-2026-11-12.md).

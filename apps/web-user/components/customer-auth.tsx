@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
+import { clearPersistedCart } from '@kantin/ui/demo';
 import { getCustomerAuthClient, isCustomerAuthConfigured } from '../lib/supabase';
 
 type AuthState = { epoch: number; user: User | null; loading: boolean; unavailable: boolean; signOut: () => Promise<boolean> };
@@ -17,7 +18,15 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
     client.auth.getSession().then(({ data, error }) => {
       if (alive) { setUser(data.session?.user ?? null); setUnavailable(!!error); setLoading(false); }
     }).catch(() => { if (alive) { setUnavailable(true); setLoading(false); } });
-    const { data } = client.auth.onAuthStateChange((event, session) => { if (alive) { setUser(session?.user ?? null); setLoading(false); if (event === 'SIGNED_OUT') setEpoch(value => value + 1); } });
+    const { data } = client.auth.onAuthStateChange((event, session) => {
+      if (!alive) return;
+      if (event === 'SIGNED_OUT') {
+        clearPersistedCart();
+        setEpoch(value => value + 1);
+      }
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
     return () => { alive = false; data.subscription.unsubscribe(); };
   }, []);
   async function signOut() {

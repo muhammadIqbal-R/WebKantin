@@ -2,12 +2,13 @@
 import Link from 'next/link';
 import { ArrowRight, Badge, Button, EmptyState, FoodPhoto, Minus, Plus, QrCode, ShoppingBag, UtensilsCrossed, formatMoney } from '@kantin/ui';
 import { useDemo } from '@kantin/ui/demo';
-export function Quantity({ id, name }: { id: string; name: string }) {
-  const { cart, changeQuantity } = useDemo();
+export function Quantity({ id, name, disabled = false }: { id: string; name: string; disabled?: boolean }) {
+  const { cart, changeQuantity, menus } = useDemo();
+  const menu=menus.find(entry=>entry.id===id),maximum=Math.min(99,menu?.stock??99);
   return <div className="quantity-control" aria-label={'Jumlah ' + name}>
-    <button type="button" onClick={() => changeQuantity(id, -1)} aria-label={'Kurangi ' + name}><Minus /></button>
+    <button type="button" onClick={() => changeQuantity(id, -1)} disabled={disabled || !cart[id]} aria-label={'Kurangi ' + name}><Minus /></button>
     <span className="numeric" aria-live="polite">{cart[id] ?? 0}</span>
-    <button type="button" onClick={() => changeQuantity(id, 1)} disabled={(cart[id] ?? 0) >= 99} aria-label={'Tambah ' + name}><Plus /></button>
+    <button type="button" onClick={() => changeQuantity(id, 1)} disabled={disabled || !menu?.is_available || (cart[id] ?? 0) >= maximum} aria-label={'Tambah ' + name}><Plus /></button>
   </div>;
 }
 export function Cart() {
@@ -17,7 +18,7 @@ export function Cart() {
   const total = lines.reduce((sum, menu) => sum + menu.price * (cart[menu.id] ?? 0), 0);
   return <aside className="cart-panel" aria-label="Ringkasan keranjang">
     <div className="cart-heading"><h2 className="row"><ShoppingBag />Pesananmu</h2><Badge>{count} item</Badge></div>
-    <p className="cart-tenant">{tenants[0]?.name ?? 'Kantin Fakultas'}</p>
+    <p className="cart-tenant">{tenants.filter(tenant=>lines.some(menu=>menu.tenant_id===tenant.id)).map(tenant=>tenant.name).join(' · ')||'Kantin Fakultas'}</p>
     <div className="segmented" aria-label="Cara menikmati pesanan">
       <button className={orderType === 'dine_in' ? 'active' : ''} aria-pressed={orderType === 'dine_in'} onClick={() => setOrderType('dine_in')}><UtensilsCrossed />Makan di tempat</button>
       <button className={orderType === 'take_away' ? 'active' : ''} aria-pressed={orderType === 'take_away'} onClick={() => setOrderType('take_away')}><ShoppingBag />Bawa pulang</button>

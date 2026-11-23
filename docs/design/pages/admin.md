@@ -32,3 +32,10 @@ section memakai cream muted. Tidak mengubah font, logo, atau alur bisnis.
 Permintaan pengguna ADR-016: Poppins untuk judul, isi, tombol, navigasi dan angka.
 Gunakan berkas lokal weight 400/500/600/700, pertahankan palet olive/cream dan logo.
 Periksa ulang label kategori, header HP dan tabel karena lebar huruf berubah.
+# Revisi pengelolaan 2026-11-20
+
+Vendor 21 November: login menjelaskan akun dari admin/undangan, daftar tenant menyediakan import katalog vendor; antrean order nyata dengan badge, status koneksi, Aktifkan bunyi/Tes/Matikan serta notifikasi desktop opt-in. Dialog konfirmasi nominal/merchant/alasan sebelum accept/reject. Tidak meminta izin audio/notifikasi otomatis saat halaman dibuka.
+
+Onboarding tambahan: setelah simpan tenant, buka ruang tenant yang dipilih; tampilkan nama tenant, daftar menu dengan foto/harga/stok, tombol Tambah menu, dan kelengkapan QRIS/aktivasi khusus admin. Form foto memakai preview, validasi dan pending/error. Tidak menambah pemilih peran, slogan atau kontrol demo. Palet dan font tetap.
+
+Sebelum markup baru: ikuti state dan tata letak [pengelolaan operasional](../../staff-management.md). Satu login; navigasi dari profil API; tenant/stok/user memakai data tersimpan, tanpa demo fallback. Pertahankan Poppins dan panel cream pada latar olive. Stok angka di form menu, arsip dan nonaktif user memakai konfirmasi, serta loading/error/empty/retry.

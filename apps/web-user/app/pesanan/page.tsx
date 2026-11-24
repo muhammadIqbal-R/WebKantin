@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { STATUS_LABELS, STATUS_TONES } from '@kantin/ui/demo';
-import { Badge, Button, formatMoney } from '@kantin/ui';
+import { Badge, Button, Modal, OrderChat, formatMoney } from '@kantin/ui';
 import type { Order } from '@kantin/shared';
 import { useCustomerOrders } from '../../components/customer-orders';
 import { useCustomerAuth } from '../../components/customer-auth';
@@ -13,6 +13,7 @@ export default function OrdersPage() {
   const state = useCustomerOrders();
   const [actionError, setActionError] = useState('');
   const [busy, setBusy] = useState('');
+  const [chatOrder, setChatOrder] = useState<{id:string;code:string} | null>(null);
 
   if (auth.loading) return <p role="status">Memeriksa sesi…</p>;
   if (!auth.user) return <section className="panel stack">
@@ -39,7 +40,7 @@ export default function OrdersPage() {
     {state.error && <p role="alert" className="form-error">{state.error}</p>}
     {actionError && <p role="alert" className="form-error">{actionError}</p>}
     <div className="order-cards">
-      {state.orders.map(({ data: order, items, payment_rejection_reason }) => <article className="panel order-card stack" key={order.id}>
+      {state.orders.map(({ data: order, items, payment_rejection_reason, chat_available }) => <article className="panel order-card stack" key={order.id}>
         <div className="panel-header">
           <strong className="order-code">{order.order_code}</strong>
           <Badge tone={STATUS_TONES[order.status]}>{STATUS_LABELS[order.status]}</Badge>
@@ -60,8 +61,15 @@ export default function OrdersPage() {
             {order.payment_status === 'rejected' ? 'Kirim ulang klaim pembayaran' : 'Saya sudah bayar'}
           </Button>
         </> : <p className="notice small">{statusDescription(order.status)}</p>}
+        {chat_available && <Button variant="outline" size="sm"
+          onClick={() => setChatOrder({id:order.id,code:order.order_code})}>Chat tenant</Button>}
       </article>)}
     </div>
+    <Modal open={chatOrder !== null} onOpenChange={open => { if (!open) setChatOrder(null); }}
+      title="Chat dengan tenant" description={chatOrder?.code ?? ''}>
+      {chatOrder && <OrderChat key={chatOrder.id} request={state.request}
+        path={'/api/orders/' + chatOrder.id + '/messages'} side="pelanggan" />}
+    </Modal>
     {!state.loading && !state.error && !state.orders.length && <section className="panel stack">
       <p>Belum ada pesanan pada akun ini.</p>
       <Button asChild><Link href="/">Pilih tenant</Link></Button>

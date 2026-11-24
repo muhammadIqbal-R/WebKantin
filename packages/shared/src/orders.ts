@@ -50,6 +50,7 @@ export const OrderDetailResponseSchema = z.strictObject({
   items: z.array(OrderItemSchema).min(1).max(LIMITS.maxCartLines),
   payment_rejection_reason: z.string().trim().min(2).max(300).optional(),
   payment_merchant_name: z.string().trim().min(2).max(150).optional(),
+  chat_available: z.boolean().optional(),
 }).superRefine((detail, ctx) => {
   const matches = detail.items.every((item) => item.order_id === detail.data.id && item.tenant_id === detail.data.tenant_id);
   const unique = new Set(detail.items.map((item) => item.menu_id)).size === detail.items.length;

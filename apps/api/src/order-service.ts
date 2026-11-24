@@ -28,6 +28,7 @@ export function detailDto(row: Prisma.OrderGetPayload<{include:{items:true}}> & 
     })),
     ...(reason ? {payment_rejection_reason:reason} : {}),
     ...(merchant ? {payment_merchant_name:merchant} : {}),
+    chat_available: Boolean(row.customerId),
   });
 }
 export async function checkout(db:Pick<Database,'checkout'>,cipher:ReplayCipher,sub:string,key:string,input:CreateOrdersRequest,requestId:string){

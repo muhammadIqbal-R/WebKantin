@@ -137,6 +137,7 @@ model Order {
   accessGrants OrderAccessGrant[]
   paymentSnapshots OrderPaymentSnapshot[]
   events OrderEvent[]
+  messages OrderMessage[]
   @@unique([id,tenantId])
   @@index([tenantId,createdAt,id],map:"orders_tenant_created_idx")
   @@index([customerId,createdAt,id],map:"orders_customer_created_idx")
@@ -144,6 +145,21 @@ model Order {
   @@index([tenantId,paymentStatus,createdAt,id],map:"orders_tenant_payment_idx")
   @@map("orders")
   @@schema("public")
+}
+model OrderMessage {
+  orderId String @map("order_id") @db.Uuid
+  id String @db.Uuid
+  sequence BigInt @default(autoincrement())
+  sender String @db.VarChar(10)
+  senderId String @map("sender_id") @db.Uuid
+  text String @db.VarChar(1000)
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  order Order @relation(fields:[orderId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  @@id([orderId,id])
+  @@index([orderId,sequence(sort: Desc)],map:"order_messages_history_idx")
+  @@index([orderId,sender,createdAt(sort: Desc)],map:"order_messages_rate_idx")
+  @@map("order_messages")
+  @@schema("app_private")
 }
 model OrderItem {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

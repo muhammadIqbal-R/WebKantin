@@ -5,7 +5,8 @@ import {getCustomerAuthClient} from '../lib/supabase';
 import {useCustomerAuth} from './customer-auth';
 type Detail=ReturnType<typeof OwnedOrdersResponseSchema.parse>['data'][number];
 type Payment=ReturnType<typeof PaymentInstructionsResponseSchema.parse>;
-type Value={orders:Detail[];loading:boolean;error:string;next:string|null;reload:()=>Promise<void>;older:()=>Promise<void>;create:(input:CreateOrdersRequest)=>Promise<void>;paid:(order:Order)=>Promise<void>;payment:(id:string)=>Promise<Payment>};
+type OrderRequest = <T>(path:string,schema:{parse:(value:unknown)=>T},method?:'GET'|'POST'|'PATCH',body?:unknown,extra?:Record<string,string>)=>Promise<T>;
+type Value={orders:Detail[];loading:boolean;error:string;next:string|null;reload:()=>Promise<void>;older:()=>Promise<void>;create:(input:CreateOrdersRequest)=>Promise<void>;paid:(order:Order)=>Promise<void>;payment:(id:string)=>Promise<Payment>;request:OrderRequest};
 const Context=createContext<Value|null>(null);
 export function CustomerOrders({children}:{children:ReactNode}){const {user}=useCustomerAuth();return <OwnedProvider key={user?.id??'guest'} subject={user?.id??null}>{children}</OwnedProvider>;}
 function OwnedProvider({children,subject}:{children:ReactNode;subject:string|null}){
@@ -29,11 +30,11 @@ function OwnedProvider({children,subject}:{children:ReactNode;subject:string|nul
  async function paid(order:Order){
   const response=await api('/api/orders/'+order.id+'/paid',OrderResponseSchema,'PATCH',{expected_version:order.version});
   setOrders(old=>old.map(item=>item.data.id===order.id&&response.data.version>item.data.version
-    ? {data:response.data,items:item.items} : item));
+    ? {data:response.data,items:item.items,...(item.chat_available===undefined?{}:{chat_available:item.chat_available})} : item));
   await reload();
  }
  const payment=useCallback(async(id:string)=>api('/api/orders/'+id+'/payment',PaymentInstructionsResponseSchema),[api]);
  async function older(){if(!next)return;const response=await api('/api/orders?limit=100&cursor='+encodeURIComponent(next),OwnedOrdersResponseSchema);pages.current=true;merge(response.data);setNext(response.next_cursor);}
- return <Context.Provider value={{orders,loading,error,next,reload:async()=>{pages.current=false;setOrders([]);await reload();},older,create,paid,payment}}>{children}</Context.Provider>;
+ return <Context.Provider value={{orders,loading,error,next,reload:async()=>{pages.current=false;setOrders([]);await reload();},older,create,paid,payment,request:api}}>{children}</Context.Provider>;
 }
 export function useCustomerOrders(){const value=useContext(Context);if(!value)throw new Error('CustomerOrders provider required');return value;}

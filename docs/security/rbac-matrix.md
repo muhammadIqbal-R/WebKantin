@@ -12,6 +12,7 @@ Revisi pengelolaan 2026-11-20: [kontrak operasional](../staff-management.md). Ad
 | Daftar/detail order admin | Tidak | Tenant sendiri | Semua tenant |
 | Terima/tolak pembayaran | Tidak | Tenant sendiri | Semua tenant |
 | Status siap/selesai/batal sebelum paid | Tidak | Tenant sendiri | Semua tenant |
+| Baca/kirim chat pesanan | Akun pemilik order saja | Tenant order saja | Tidak |
 | CRUD menu | Tidak | Tenant sendiri | Semua tenant |
 | CRUD tenant, QRIS, akun tenant | Tidak | Tidak | Ya |
 | CRUD outlet/denah | Tidak | Tidak | Ya |

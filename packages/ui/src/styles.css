@@ -2579,3 +2579,21 @@ body:has(.mobile-cart) .site-footer {
   object-fit: contain;
   object-position: left;
 }
+.order-chat { min-width: 0; }
+.order-chat-history {
+  max-height: 40vh;
+  overflow: auto;
+  padding: var(--s2);
+}
+.order-chat-message {
+  padding: var(--s3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--canvas-deep);
+}
+.order-chat-message.own-message { background: var(--action-soft); }
+.order-chat-message p {
+  margin-top: var(--s1);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

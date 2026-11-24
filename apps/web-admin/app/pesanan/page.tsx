@@ -1,7 +1,7 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
 import {AdminOrderListResponseSchema,OrderDetailResponseSchema,OrderResponseSchema,type Order} from '@kantin/shared';
-import {Badge,Button,Field,Modal,formatMoney} from '@kantin/ui';
+import {Badge,Button,Field,Modal,OrderChat,formatMoney} from '@kantin/ui';
 import {STATUS_LABELS,STATUS_TONES} from '@kantin/ui/demo';
 import {useLoad,useManagement} from '../../components/management';
 import {DataState} from '../../components/data-state';
@@ -22,7 +22,7 @@ const confirmationText = {
 };
 
 function OrderDetail({ id, done }: { id: string; done: () => Promise<void> }) {
-  const { request } = useManagement();
+  const { actor, request } = useManagement();
   const load = useCallback(() => request('/api/admin/orders/' + id, OrderDetailResponseSchema), [request, id]);
   const state = useLoad(load);
   const order = state.data?.data;
@@ -31,6 +31,7 @@ function OrderDetail({ id, done }: { id: string; done: () => Promise<void> }) {
   const [action, setAction] = useState<keyof typeof confirmationText | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [chatOpen, setChatOpen] = useState(false);
 
   async function submit() {
     if (!order || !action || busy || (action === 'accept' && !merchant)) return;
@@ -101,5 +102,10 @@ function OrderDetail({ id, done }: { id: string; done: () => Promise<void> }) {
         Muat ulang detail
       </Button>
     </div>}
+    {actor?.role === 'tenant' && state.data?.chat_available && <>
+      <Button variant="outline" size="sm" aria-expanded={chatOpen}
+        onClick={() => setChatOpen(open => !open)}>{chatOpen ? 'Tutup chat' : 'Chat pelanggan'}</Button>
+      {chatOpen && <OrderChat request={request} side="tenant" path={'/api/admin/orders/' + id + '/messages'} />}
+    </>}
   </div>;
 }

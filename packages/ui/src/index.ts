@@ -10,3 +10,4 @@ export {
 } from 'lucide-react';
 
 export { FloorMap } from './floor-map';
+export { OrderChat } from './order-chat';

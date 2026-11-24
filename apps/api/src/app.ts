@@ -13,6 +13,7 @@ import {
   PaymentInstructionsResponseSchema,AdminOrderQuerySchema,AdminOrderListResponseSchema,ConfirmPaymentRequestSchema,UpdateOrderStatusRequestSchema,
   OrderFeedQuerySchema,OrderFeedCursorSchema,OrderNotificationFeedSchema,OrderSchema,
   CreateOutletRequestSchema, UpdateOutletRequestSchema, OutletSchema, FloorMapResponseSchema,
+  OrderMessagesQuerySchema, SendOrderMessageSchema,
 } from '@kantin/shared';
 import { Database, userDto, type Tx } from './database.js';
 import { Accounts } from './accounts.js';
@@ -20,6 +21,7 @@ import { adminOnly, HttpError, databaseCode } from './errors.js';
 import { Media, readImage, normalizeImage, type MediaPurpose } from './media.js';
 import {ReplayCipher} from './replay.js';
 import {checkout,orderDto,detailDto,customerOrderDetail} from './order-service.js';
+import {listOrderMessages,sendOrderMessage} from './order-chat.js';
 import {Prisma} from './generated/prisma/client.js';
 
 type ApiRequest = Request<Record<string,string>, unknown, unknown>;
@@ -119,6 +121,32 @@ export function createApp(deps: Dependencies): Express {
     const row=await work(async tx=>{const tenant=await tx.tenant.findUnique({where:{id:input.tenant_id}});if(!tenant||tenant.archivedAt)throw new HttpError(404,'Tenant tidak tersedia.');const existing=await tx.user.findUnique({where:{id:input.user_id}});if(existing){if(existing.role!=='tenant'||existing.tenantId!==input.tenant_id)throw new HttpError(409,'Akun sudah memiliki akses staf lain.');return existing;}return tx.user.create({data:{id:auth.id,email:auth.email as string,role:'tenant',tenantId:input.tenant_id,isActive:true}});});res.status(201).json(MeResponseSchema.parse({data:userDto(row)}));
   });
   async function owner(req:ApiRequest,res:Response){const match=/^Bearer ([A-Za-z0-9_.-]+)$/.exec(req.get('authorization')??'');if(!match?.[1])throw new HttpError(401,'Masuk sebelum memesan.');const sub=await deps.verify(match[1]);if(!deps.db.customer)throw new HttpError(503,'Layanan pesanan belum siap.');return {sub,work:<T>(fn:(tx:Tx)=>Promise<T>)=>deps.db.customer!(sub,res.locals.requestId as string,fn)};}
+  type ChatTransaction = <T>(fn:(tx:Tx)=>Promise<T>)=>Promise<T>;
+  async function readChat(req:ApiRequest,res:Response,work:ChatTransaction) {
+    const {id}=IdParamsSchema.parse(req.params);
+    const {cursor}=OrderMessagesQuerySchema.parse(req.query);
+    res.json(await work(tx=>listOrderMessages(tx,id,cursor)));
+  }
+  async function sendChat(req:ApiRequest,res:Response,work:ChatTransaction) {
+    const {id}=IdParamsSchema.parse(req.params);
+    EmptyBodySchema.parse(req.query);
+    const input=SendOrderMessageSchema.parse(req.body);
+    const result=await work(tx=>sendOrderMessage(tx,id,input));
+    res.status(result.created?201:200).json(result.response);
+  }
+  for (const [method, handler] of [['get',readChat],['post',sendChat]] as const) {
+    app[method]('/api/orders/:id/messages',async(req:ApiRequest,res)=>{
+      const {work}=await owner(req,res);
+      await handler(req,res,work);
+    });
+    route(method,'/api/admin/orders/:id/messages',false,async(req,res,work,actor)=>{
+      if (actor.role!=='tenant') throw new HttpError(404,'Chat pesanan tidak tersedia.');
+      await handler(req,res,fn=>work((tx,current)=>{
+        if (current.role!=='tenant') throw new HttpError(404,'Chat pesanan tidak tersedia.');
+        return fn(tx);
+      }));
+    });
+  }
   const checkoutLimits=new Map<string,{until:number;count:number}>();
   app.post('/api/orders',async(req:ApiRequest,res)=>{const {sub}=await owner(req,res);const input=CreateOrdersRequestSchema.parse(req.body),header=CheckoutHeadersSchema.parse({idempotency_key:req.get('idempotency-key')});const now=Date.now();if(checkoutLimits.size>10000)for(const [id,value]of checkoutLimits)if(value.until<now)checkoutLimits.delete(id);let limit=checkoutLimits.get(sub);if(!limit||limit.until<now){if(checkoutLimits.size>=10000&&!limit)throw new HttpError(429,'Checkout sedang sibuk. Coba kembali.');limit={until:now+60000,count:0};checkoutLimits.set(sub,limit);}if(++limit.count>10)throw new HttpError(429,'Terlalu banyak percobaan checkout. Periksa pesanan lalu coba kembali.');if(!deps.db.checkout||!deps.cipher)throw new HttpError(503,'Checkout belum dikonfigurasi.');const orders=await checkout({checkout:deps.db.checkout.bind(deps.db)},deps.cipher,sub,header.idempotency_key,input,res.locals.requestId as string);res.status(201).json(orders);});
   app.get('/api/orders',async(req:ApiRequest,res)=>{const {sub,work}=await owner(req,res),q=PaginationQuerySchema.parse(req.query);const rows=await work(async tx=>{const cursor=q.cursor?await tx.order.findFirst({where:{id:q.cursor,customerId:sub}}):null;if(q.cursor&&!cursor)throw new HttpError(404,'Pesanan tidak ditemukan.');return tx.order.findMany({where:{customerId:sub,...(cursor?{OR:[{createdAt:{lt:cursor.createdAt}},{createdAt:cursor.createdAt,id:{lt:cursor.id}}]}:{})},include:customerOrderDetail,orderBy:[{createdAt:'desc'},{id:'desc'}],take:q.limit+1});});res.json(OwnedOrdersResponseSchema.parse({data:rows.slice(0,q.limit).map(detailDto),next_cursor:rows.length>q.limit?rows[q.limit-1]?.id??null:null}));});

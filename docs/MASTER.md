@@ -2,7 +2,7 @@
 
 **Status:** draft  
 **Pemilik:** Lead Full-Stack Engineer / Software Architect; persetujuan oleh pemilik produk  
-**Terakhir diperbarui:** 2026-11-23
+**Terakhir diperbarui:** 2026-11-24
 **Milestone aktif:** revisi vendor: pilih tenant, katalog, akun staf, order persisten/QRIS manual, reservasi stok dan kode Realtime/notifikasi. Implementasi lokal diuji; pemasangan SQL/deploy/UAT Supabase live belum dilakukan agen.
 
 ## 1. Otoritas dan ruang lingkup
@@ -56,6 +56,7 @@ web-admin. Seluruh PRD fitur disusun sebelum kode fitur dimulai.
 | F-07 | [Manajemen menu](features/F-07-admin-menu.md) | draft | M3 |
 | F-08 | [Konfirmasi pembayaran dan status](features/F-08-konfirmasi-pembayaran.md) | draft | M3 |
 | F-09 | [Auth dan RBAC](features/F-09-auth-rbac.md) | draft | M1–M3 |
+| F-10 | [Chat pesanan](features/F-10-chat-pesanan.md) | draft | M4 |
 
 Pemilik seluruh draft: Lead Full-Stack Engineer; reviewer produk belum ditetapkan.
 Siklus status: draft → in-review → approved; deprecated untuk spesifikasi yang diganti.
@@ -79,7 +80,8 @@ session dan Realtime. Semua mutasi bisnis, termasuk upload media dan provisionin
 melalui Express. Tidak ada Next Server Action/Route Handler yang menulis data aplikasi.
 Auth session adalah pengecualian identitas; revisi ADR-012 mencakup signup pelanggan
 melalui Supabase Auth. Profil/role staf dan mutation data bisnis tetap melalui Express.
-Tidak ada gateway, pembayaran tunai/kartu, chat, atau aplikasi native di V1.
+Tidak ada gateway, pembayaran tunai/kartu, atau aplikasi native di V1.
+Chat V1 terbatas pada percakapan per pesanan antara pelanggan dan tenant.
 Instruksi terbaru mengizinkan akun pelanggan minimal; login wajib sebelum checkout.
 
 ## 5. Architecture Decisions
@@ -268,6 +270,7 @@ Estimasi PRD ±10 minggu untuk satu developer; bukan janji jadwal baru.
 
 | Tanggal | Perubahan/konflik | Penyelesaian |
 |---|---|---|
+| 2026-11-24 | Pengguna meminta pelanggan bisa membalas pesan tenant | F-10 mengganti batas tanpa chat. Percakapan melekat pada order yang sudah ada. Pesan dibaca dan dikirim melalui Express. |
 | 2026-11-23 | Audit ulang alur pelanggan, tenant, dan pengelola | Keranjang bertahan saat masuk, umpan balik QRIS/status diperjelas, serta F-05 denah/outlet terhubung ke API. [Laporan audit](qa/FLOW-AUDIT-2026-11-23.md). |
 | 2026-11-21 | Vendor meminta tenant-first, katalog, akun dan notifikasi | vendor-launch.md: ownership Auth, RLS pemilik/staf, INSERT/UPDATE publication dan audio opt-in; SQL live/deploy oleh operator. |
 | 2026-11-20 | Tambah tenant harus mencakup menu, gambar dan detail di dalamnya | Onboarding `/tenant/:id`, foto/menu/QRIS melalui Express, katalog publik API; checkout/realtime tetap terpisah. |

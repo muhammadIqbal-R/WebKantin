@@ -143,3 +143,90 @@ test('order details project the rejection reason to its owner and the merchant t
     assert.equal(claims,1);
   }finally{await new Promise<void>((resolve,reject)=>testApp.close(error=>error?reject(error):resolve()));}
 });
+
+test('order chat HTTP supports tenant-to-customer replies, cursor history, and safe retries',async()=>{
+  const owner=randomUUID(),foreign=randomUUID(),orderId=randomUUID();
+  const now=new Date();
+  type MessageRow={id:string;sender:string;senderId:string;text:string;createdAt:Date;sequence:bigint};
+  const messages:MessageRow[]=Array.from({length:30},(_,index)=>({
+    id:randomUUID(),sender:'tenant',senderId:tenantId,text:'Earlier message '+index,
+    createdAt:new Date(now.getTime()-120000+index),sequence:BigInt(index+1),
+  }));
+  let closed=false;
+  function tx(subject:string,perspective:'pelanggan'|'tenant') {
+    const permitted=perspective==='pelanggan'?subject===owner:subject===tenantId;
+    return {
+      $queryRaw:async(query:unknown)=>{
+        if(Array.isArray(query)){
+          return [{count:messages.filter(row=>row.sender===perspective&&row.createdAt>=now).length}];
+        }
+        if(!permitted || (query as {values:unknown[]}).values[0]!==orderId)return [];
+        return [{status:closed?'selesai':'diproses',actor_id:subject,sender:perspective}];
+      },
+      orderMessage:{
+        findUnique:async({where}:{where:{orderId_id:{id:string;orderId:string}}})=>
+          where.orderId_id.orderId===orderId?messages.find(row=>row.id===where.orderId_id.id)??null:null,
+        findMany:async({where,take}:{where:{sequence?:{lt:bigint}};take:number})=>messages
+          .filter(row=>!where.sequence||row.sequence<where.sequence.lt).reverse().slice(0,take),
+        create:async({data}:{data:Omit<MessageRow,'createdAt'|'sequence'>})=>{
+          const row={...data,createdAt:new Date(),sequence:BigInt(messages.length+1)};
+          messages.push(row);
+          return row;
+        },
+      },
+    } as unknown as Tx;
+  }
+  const testApp=createApp({
+    db:{
+      ...db,
+      async customer(sub,_request,work){return work(tx(sub,'pelanggan'));},
+      async staff(sub,_request,work){return work(tx(sub,'tenant'),actor(sub));},
+    },
+    verify:async token=>token==='owner'?owner:token==='staff'?tenantId:token==='admin'?adminId:foreign,
+    accounts:{list:async()=>[],invite:async()=>{throw new Error('Unexpected invite');},setActive:async()=>{}},
+    origins:[],
+  }).listen(0,'127.0.0.1');
+  await new Promise<void>(resolve=>testApp.once('listening',resolve));
+  try{
+    const address=testApp.address();
+    assert.ok(address&&typeof address!=='string');
+    const customerPath='/api/orders/'+orderId+'/messages';
+    const staffPath='/api/admin/orders/'+orderId+'/messages';
+    function chat(path:string,token?:string,body?:object) {
+      return fetch('http://127.0.0.1:'+address.port+path,{
+        method:body?'POST':'GET',
+        headers:{...(token?{Authorization:'Bearer '+token}:{}),...(body?{'Content-Type':'application/json'}:{})},
+        ...(body?{body:JSON.stringify(body)}:{}),
+      });
+    }
+    assert.equal((await chat(customerPath)).status,401);
+    assert.equal((await chat(customerPath,'foreign')).status,404);
+    assert.equal((await chat(staffPath,'foreign')).status,404);
+    assert.equal((await chat(staffPath,'admin')).status,404);
+    assert.equal((await chat(staffPath,'staff',{id:randomUUID(),text:'x',sender:'pelanggan'})).status,400);
+    const first={id:randomUUID(),text:'Ambil di kasir ya.'};
+    const second={id:randomUUID(),text:'Baik, saya ke kasir.'};
+    assert.equal((await chat(staffPath,'staff',first)).status,201);
+    assert.equal((await chat(customerPath,'owner',second)).status,201);
+    assert.equal((await chat(customerPath,'owner',second)).status,200);
+    assert.equal((await chat(staffPath,'staff',second)).status,409);
+    assert.equal((await chat(customerPath,'owner',{...second,text:'Diubah'})).status,409);
+    assert.equal(messages.length,32);
+    const response=await chat(customerPath,'owner');
+    assert.equal(response.status,200);
+    const page=await response.json();
+    assert.deepEqual(page.data.slice(-2).map((message:MessageRow)=>[message.sender,message.text]),
+      [['tenant',first.text],['pelanggan',second.text]]);
+    assert.ok(!('sender_id' in page.data[0]));
+    const older=await (await chat(staffPath+'?cursor='+page.next_cursor,'staff')).json();
+    assert.equal(older.data.length,2);
+    assert.equal(older.next_cursor,null);
+    assert.equal((await chat(customerPath+'?cursor='+randomUUID(),'owner')).status,404);
+    for(let count=1;count<12;count++)assert.equal((await chat(customerPath,'owner',{id:randomUUID(),text:'Pesan uji'})).status,201);
+    assert.equal((await chat(customerPath,'owner',{id:randomUUID(),text:'Batas'})).status,429);
+    closed=true;
+    assert.equal((await chat(customerPath,'owner',{id:randomUUID(),text:'Setelah selesai'})).status,409);
+    assert.equal((await chat(customerPath,'owner',second)).status,200);
+    assert.equal((await (await chat(staffPath,'staff')).json()).closed,true);
+  }finally{await new Promise<void>((resolve,reject)=>testApp.close(error=>error?reject(error):resolve()));}
+});

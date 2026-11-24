@@ -14,6 +14,7 @@ erDiagram
   menus ||--o{ order_items : snapshots
   orders ||--o| order_access_grants : protects
   orders ||--|{ order_events : audits
+  orders ||--o{ order_messages : contains
   checkout_requests ||--|{ checkout_orders : splits
   orders ||--|| checkout_orders : belongs
   orders ||--|| order_payment_snapshots : freezes
@@ -39,6 +40,7 @@ erDiagram
 | order_access_grants | Satu grant per order, SHA-256 token_digest, revoked_at, expires_at; bukan token plaintext |
 | order_payment_snapshots | QRIS URL canonical + merchant checkout immutable, FK order deferred |
 | order_events | Audit state/order append-only, actual actor, versi, reason, request_id |
+| order_messages | Pesan per order dengan pengirim terverifikasi dan urutan server. ID gabungan order dan pesan mendukung retry. RLS hanya untuk pemilik order dan tenant terkait. |
 | audit_events | Audit perubahan katalog/profil, scope tenant dan request_id; bukan response API |
 
 Skema privat tidak diekspos Data API. Outlet global tidak diberi tenant_id palsu;

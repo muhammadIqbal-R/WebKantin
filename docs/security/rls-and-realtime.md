@@ -29,6 +29,7 @@ RLS adalah defense tambahan atas filter tenant di setiap service API.
 | users | Tidak | Diri sendiri | Semua untuk manajemen akun | Tidak |
 | order_access_grants, checkout_requests | Hanya helper API terbatas | Tidak | Tidak lewat endpoint umum | Tidak |
 | order_events, order_payment_snapshots | Projection relevan via API | Scope sendiri | Semua | Tidak |
+| order_messages | JWT pemilik order | JWT staf aktif dan tenant sesuai | Tidak | Tidak |
 
 users, grants, checkout_requests, checkout_orders, events, audit_events dan payment snapshots berada di skema privat
 yang tidak diekspos Data API; semua tetap RLS. orders tidak mengandung token digest,

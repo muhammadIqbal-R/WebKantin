@@ -23,7 +23,7 @@ BEGIN
   SELECT count(*) INTO protected_count FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
     WHERE c.relkind='r' AND c.relrowsecurity AND c.relforcerowsecurity
     AND ((n.nspname='public' AND c.relname IN ('outlets','tenants','menus','orders','order_items'))
-      OR (n.nspname='app_private' AND c.relname IN ('users','checkout_requests','checkout_orders','order_access_grants','order_payment_snapshots','order_events','audit_events')));
+      OR (n.nspname='app_private' AND c.relname IN ('users','checkout_requests','checkout_orders','order_access_grants','order_payment_snapshots','order_events','order_messages','audit_events')));
   IF protected_count<>12 THEN RAISE EXCEPTION 'Expected 12 protected application tables, found %',protected_count; END IF;
   IF pg_has_role('authenticator','kantin_api','MEMBER') THEN RAISE EXCEPTION 'API role must not be granted to authenticator'; END IF;
 END

@@ -7,3 +7,4 @@ export * from './uploads.js';
 export * from './management.js';
 export * from './vendor.js';
 export * from './notifications.js';
+export * from './order-messages.js';

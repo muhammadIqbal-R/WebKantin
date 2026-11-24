@@ -68,3 +68,35 @@ test('outlet changes are admin-only and an outlet with active tenants cannot be 
  await assert.rejects(()=>transact(db,'api',staff(admin),sql=>sql.query('UPDATE public.outlets SET is_active=false WHERE id=$1',[occupied])),{code:'23514'});
 });
 test('first administrator bootstrap needs one Auth account, no tenant account and does not publish credentials',async()=>{const isolated=await makeDatabase();try{await isolated.exec(await readSql(baselineUrl));await isolated.exec(await readSql(seedUrl));const id=randomUUID();await isolated.query("INSERT INTO auth.users(id,email) VALUES($1,'owner@example.test')",[id]);const script=(await readSql(new URL('../../../infra/supabase/bootstrap-admin.example.sql',import.meta.url))).replace('REPLACE_ADMIN_EMAIL','owner@example.test').replace('REPLACE_FIRST_SETUP_PASSWORD',randomBytes(24).toString('base64'));await isolated.exec(script);assert.deepEqual((await isolated.query('SELECT id,role,tenant_id FROM app_private.users')).rows,[{id,role:'admin_pengelola',tenant_id:null}]);assert.equal((await isolated.query("SELECT rolcanlogin FROM pg_roles WHERE rolname='kantin_api'")).rows[0].rolcanlogin,true);}finally{await isolated.close();}});
+
+test('order chat allows both participants, rejects other actors and keeps closed history readable',async()=>{
+ const migration=await readSql(new URL('../../../infra/supabase/chat-upgrade.sql',import.meta.url));
+ await db.exec(migration);
+ const [order]=await create(customerA,[{tenant:B,menu:MB,qty:1}]);
+ const stranger=randomUUID();
+ await db.query('INSERT INTO auth.users(id,email) VALUES($1,$2)',[stranger,'unrelated@example.test']);
+ const send=(scope,sender,text='Pesan uji',id=randomUUID())=>transact(db,'api',scope,sql=>sql.query(
+  'INSERT INTO app_private.order_messages(order_id,id,sender,sender_id,text) VALUES($1,$2,$3,$4,$5) RETURNING sender_id',
+  [order.id,id,sender,stranger,text],
+ ));
+ const read=(scope)=>transact(db,'api',scope,async sql=>(await sql.query(
+  'SELECT sender,text FROM app_private.order_messages WHERE order_id=$1 ORDER BY sequence',[order.id],
+ )).rows);
+ assert.deepEqual((await send(staff(staffB),'tenant','Ambil di kasir ya')).rows,[{sender_id:staffB}]);
+ assert.deepEqual((await send(customer(customerA),'pelanggan','Baik, saya ke kasir.')).rows,[{sender_id:customerA}]);
+ const conversation=[{sender:'tenant',text:'Ambil di kasir ya'},{sender:'pelanggan',text:'Baik, saya ke kasir.'}];
+ for(const scope of [customer(customerA),staff(staffB)])assert.deepEqual(await read(scope),conversation);
+ for(const scope of [customer(stranger),staff(staffA),staff(admin)])assert.deepEqual(await read(scope),[]);
+ await assert.rejects(()=>send(staff(staffA),'tenant'),{code:'42501'});
+ await assert.rejects(()=>send(customer(customerA),'tenant'),{code:'42501'});
+ await assert.rejects(()=>send(customer(customerA),'pelanggan',' \n\t '),{code:'23514'});
+ await assert.rejects(()=>transact(db,'authenticated',rt(customerA),sql=>sql.query('SELECT text FROM app_private.order_messages')),{code:'42501'});
+ await assert.rejects(()=>transact(db,'api',customer(customerA),sql=>sql.query('DELETE FROM app_private.order_messages')),{code:'42501'});
+ await transact(db,'api',{...staff(staffB),'kantin.expected_version':1},sql=>sql.query(
+  "UPDATE public.orders SET status='dibatalkan' WHERE id=$1",[order.id],
+ ));
+ await assert.rejects(()=>send(staff(staffB),'tenant'),{code:'23514'});
+ assert.deepEqual(await read(customer(customerA)),conversation);
+ await db.query("UPDATE auth.users SET banned_until=now()+interval '1 hour' WHERE id=$1",[staffB]);
+ assert.deepEqual(await read(staff(staffB)),[]);
+});

@@ -22,4 +22,8 @@ const ordersUpgrade=await readFile(path.join(root,'apps/api/prisma/migrations/20
 const ordersTarget=path.join(root,'infra/supabase/orders-upgrade.sql');
 if(process.argv.includes('--check'))assert.equal(await readFile(ordersTarget,'utf8'),ordersUpgrade,'Orders upgrade is stale; run pnpm db:bundle');
 else await writeFile(ordersTarget,ordersUpgrade);
+const chatUpgrade = await readFile(path.join(root,'apps/api/prisma/migrations/202611240001_order_chat/migration.sql'),'utf8');
+const chatTarget = path.join(root,'infra/supabase/chat-upgrade.sql');
+if (process.argv.includes('--check')) assert.equal(await readFile(chatTarget,'utf8'),chatUpgrade,'Chat upgrade is stale; run pnpm db:bundle');
+else await writeFile(chatTarget,chatUpgrade);
 

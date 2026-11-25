@@ -9,5 +9,6 @@
 - Loading, pesan kosong, retry pengiriman, gagal sinkron, dan pesanan selesai
   punya pesan yang menjelaskan tindakan yang tersedia. Pesanan ditutup
   tetap menampilkan riwayat dan menonaktifkan formulir.
-- Surat masuk dibaca dengan polling selama chat terbuka. Jangan menyebut status
-  sudah dibaca atau membuat klaim notifikasi ketika panel ditutup.
+- Kotak pesan menampilkan pesan belum dibaca di seluruh web setelah login,
+  termasuk saat dialog chat ditutup. Posisi baca diperbarui saat riwayat
+  ditampilkan di tab aktif.

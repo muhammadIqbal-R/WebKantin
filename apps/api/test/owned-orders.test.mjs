@@ -5,7 +5,7 @@ import {makeDatabase,readSql,baselineUrl,seedUrl,transact} from './sql-support.m
 import {OrderSchema} from '@kantin/shared';
 let db;const admin=randomUUID(),staffA=randomUUID(),staffB=randomUUID(),customerA=randomUUID(),customerB=randomUUID(),A='20000000-0000-4000-8000-000000000001',B=randomUUID(),M='40000000-0000-4000-8000-000000000001',MB=randomUUID();let orderA,orderB;
 const context=()=>({'kantin.request_id':randomUUID()});const staff=id=>({...context(),'kantin.actor_kind':'staff','kantin.actor_id':id});const customer=id=>({...context(),'kantin.actor_kind':'customer_account','kantin.actor_id':id});const owner=fn=>transact(db,'owner',{...context(),'kantin.actor_kind':'maintenance'},fn);
-async function create(buyer,lines){const key=randomUUID(),hash='a'.repeat(64);return transact(db,'api',{...context(),'kantin.actor_kind':'checkout','kantin.customer_id':buyer,'kantin.checkout_id':key,'kantin.request_hash':hash},async sql=>{
+async function create(buyer,lines,minutes=15){const key=randomUUID(),hash='a'.repeat(64);return transact(db,'api',{...context(),'kantin.actor_kind':'checkout','kantin.customer_id':buyer,'kantin.checkout_id':key,'kantin.request_hash':hash,...(minutes===null?{}:{'kantin.unpaid_ttl_minutes':minutes})},async sql=>{
  await sql.query('INSERT INTO app_private.checkout_requests(idempotency_key,request_hash) VALUES($1,$2)',[key,hash]);const orders=[];
  for(const {tenant,menu,qty} of lines){const price=(await sql.query('SELECT price FROM public.menus WHERE id=$1',[menu])).rows[0].price;const row=(await sql.query("INSERT INTO public.orders(tenant_id,customer_name,order_type,total) VALUES($1,'Pemesan uji','take_away',$2) RETURNING *",[tenant,qty*price])).rows[0];await sql.query("INSERT INTO public.order_items(order_id,tenant_id,menu_id,menu_name,qty,unit_price,subtotal) VALUES($1,$2,$3,'server snapshot',$4,1,1)",[row.id,tenant,menu,qty]);await sql.query('INSERT INTO app_private.order_access_grants(order_id,tenant_id,token_digest) VALUES($1,$2,$3)',[row.id,tenant,createHash('sha256').update(randomBytes(32)).digest('hex')]);orders.push(row);}
  await sql.query('UPDATE app_private.checkout_requests SET response_ciphertext=$2 WHERE idempotency_key=$1',[key,'v1:'+randomBytes(48).toString('base64url')]);return orders;
@@ -99,4 +99,85 @@ test('order chat allows both participants, rejects other actors and keeps closed
  assert.deepEqual(await read(customer(customerA)),conversation);
  await db.query("UPDATE auth.users SET banned_until=now()+interval '1 hour' WHERE id=$1",[staffB]);
  assert.deepEqual(await read(staff(staffB)),[]);
+});
+
+test('operations expiry restores stock once and leaves claims in review',async()=>{
+ const sql=await readSql(new URL('../../../infra/supabase/order-operations-upgrade.sql',import.meta.url));
+ await db.exec(sql);
+ await db.query('UPDATE auth.users SET banned_until=NULL WHERE id=$1',[staffB]);
+ const beforeStock=(await db.query('SELECT stock FROM public.menus WHERE id=$1',[MB])).rows[0].stock;
+ const [unclaimed]=await create(customerA,[{tenant:B,menu:MB,qty:1}]);
+ const [claimed]=await create(customerA,[{tenant:B,menu:MB,qty:1}]);
+ assert.equal((await db.query('SELECT 1 FROM app_private.order_payment_windows WHERE order_id=$1',[orderA.id])).rows.length,0);
+ const [fromOldApi]=await create(customerA,[{tenant:B,menu:MB,qty:1}],null);
+ assert.equal((await db.query('SELECT 1 FROM app_private.order_payment_windows WHERE order_id=$1',[fromOldApi.id])).rows.length,0);
+ const windowCheck=await db.query(`SELECT w.deadline_at=o.created_at + interval '15 minutes' AS correct
+   FROM app_private.order_payment_windows w JOIN public.orders o ON o.id=w.order_id WHERE o.id=$1`,[unclaimed.id]);
+ assert.equal(windowCheck.rows[0].correct,true);
+ await transact(db,'api',{...customer(customerA),'kantin.expected_version':1},q=>q.query(
+  "UPDATE public.orders SET status='menunggu_konfirmasi' WHERE id=$1",[claimed.id],
+ ));
+ await db.query("UPDATE app_private.order_payment_windows SET deadline_at=now()-interval '1 second' WHERE order_id IN ($1,$2)",[unclaimed.id,claimed.id]);
+ await assert.rejects(()=>transact(db,'api',{...customer(customerA),'kantin.expected_version':1},q=>q.query(
+  "UPDATE public.orders SET status='menunggu_konfirmasi' WHERE id=$1",[unclaimed.id],
+ )),{code:'23514'});
+ const expire=()=>transact(db,'api',{},q=>q.query('SELECT app_private.expire_unpaid_orders() AS count'));
+ assert.equal((await expire()).rows[0].count,1);
+ assert.equal((await expire()).rows[0].count,0);
+ assert.equal((await db.query('SELECT stock FROM public.menus WHERE id=$1',[MB])).rows[0].stock,beforeStock-2);
+ const orderStatus=async id=>(await db.query('SELECT status FROM public.orders WHERE id=$1',[id])).rows[0].status;
+ assert.equal(await orderStatus(unclaimed.id),'dibatalkan');
+ assert.equal(await orderStatus(claimed.id),'menunggu_konfirmasi');
+ const event=(await db.query("SELECT actor_kind FROM app_private.order_events WHERE order_id=$1 AND action='status_changed'",[unclaimed.id])).rows[0];
+ assert.equal(event.actor_kind,'expiry');
+ await assert.rejects(()=>transact(db,'authenticated',rt(customerA),q=>q.query('SELECT app_private.expire_unpaid_orders()')),{code:'42501'});
+ const claim=await transact(db,'api',customer(customerA),q=>q.query(
+  "INSERT INTO app_private.order_refunds(order_id,reason) VALUES($1,'Sudah transfer') RETURNING source,amount",
+  [unclaimed.id],
+ ));
+ assert.deepEqual(claim.rows,[{source:'expired_claim',amount:unclaimed.total}]);
+});
+
+test('refund scope keeps paid history and only the assigned merchant can finish',async()=>{
+ const sale=orderB;
+ await db.query('UPDATE auth.users SET banned_until=NULL WHERE id=$1',[customerB]);
+ const reason='Pesanan tidak dapat digunakan';
+ const request=id=>transact(db,'api',customer(id),sql=>sql.query(
+  'INSERT INTO app_private.order_refunds(order_id,reason) VALUES($1,$2) RETURNING amount,status',[sale.id,reason],
+ ));
+ await assert.rejects(()=>request(customerA),{code:'42501'});
+ assert.deepEqual((await request(customerB)).rows,[{amount:sale.total,status:'diminta'}]);
+ const change=(user,status,ref=null)=>transact(db,'api',staff(user),sql=>sql.query(
+  'UPDATE app_private.order_refunds SET status=$2,transfer_ref=$3 WHERE order_id=$1 RETURNING status,version',[sale.id,status,ref],
+ ));
+ assert.equal((await change(staffA,'diproses')).rows.length,0);
+ assert.deepEqual((await change(staffB,'diproses')).rows,[{status:'diproses',version:2}]);
+ await assert.rejects(()=>change(admin,'dikembalikan','REF-UJI'),{code:'23514'});
+ await assert.rejects(()=>change(staffB,'dikembalikan'),{code:'23514'});
+ await assert.rejects(()=>transact(db,'api',{...staff(staffB),'kantin.expected_version':3},sql=>sql.query(
+  "UPDATE public.orders SET status='siap' WHERE id=$1",[sale.id],
+ )),{code:'23514'});
+ assert.deepEqual((await change(staffB,'dikembalikan','REF-UJI')).rows,[{status:'dikembalikan',version:3}]);
+ await assert.rejects(()=>change(staffB,'dikembalikan','REF-GANDA'),{code:'23514'});
+ const payment=(await db.query('SELECT payment_status,status FROM public.orders WHERE id=$1',[sale.id])).rows[0];
+ assert.deepEqual(payment,{payment_status:'paid',status:'diproses'});
+});
+
+test('chat read receipts are scoped to the signed-in participant',async()=>{
+ const orderId=orderB.id;
+ const message=await transact(db,'api',staff(staffB),sql=>sql.query(
+  "INSERT INTO app_private.order_messages(order_id,id,sender,sender_id,text) VALUES($1,$2,'tenant',$3,'Pesan baru') RETURNING sequence",
+  [orderId,randomUUID(),staffB],
+ ));
+ const sequence=message.rows[0].sequence;
+ const mark=(id,reader)=>transact(db,'api',customer(id),sql=>sql.query(
+  'INSERT INTO app_private.order_chat_receipts(order_id,reader_id,last_read_sequence) VALUES($1,$2,$3)',
+  [orderId,reader,sequence],
+ ));
+ await assert.rejects(()=>mark(customerA,customerA),{code:'42501'});
+ await assert.rejects(()=>mark(customerB,customerA),{code:'42501'});
+ await mark(customerB,customerB);
+ const list=scope=>transact(db,'api',scope,sql=>sql.query('SELECT reader_id FROM app_private.order_chat_receipts'));
+ assert.deepEqual((await list(customer(customerB))).rows,[{reader_id:customerB}]);
+ assert.deepEqual((await list(staff(staffB))).rows,[]);
 });

@@ -2,7 +2,7 @@
 
 **Status:** draft  
 **Pemilik:** Lead Full-Stack Engineer / Software Architect; persetujuan oleh pemilik produk  
-**Terakhir diperbarui:** 2026-11-24
+**Terakhir diperbarui:** 2026-11-25
 **Milestone aktif:** revisi vendor: pilih tenant, katalog, akun staf, order persisten/QRIS manual, reservasi stok dan kode Realtime/notifikasi. Implementasi lokal diuji; pemasangan SQL/deploy/UAT Supabase live belum dilakukan agen.
 
 ## 1. Otoritas dan ruang lingkup
@@ -57,6 +57,7 @@ web-admin. Seluruh PRD fitur disusun sebelum kode fitur dimulai.
 | F-08 | [Konfirmasi pembayaran dan status](features/F-08-konfirmasi-pembayaran.md) | draft | M3 |
 | F-09 | [Auth dan RBAC](features/F-09-auth-rbac.md) | draft | M1–M3 |
 | F-10 | [Chat pesanan](features/F-10-chat-pesanan.md) | draft | M4 |
+| F-11 | [Pengembalian dana](features/F-11-refund.md) | draft | M4 |
 
 Pemilik seluruh draft: Lead Full-Stack Engineer; reviewer produk belum ditetapkan.
 Siklus status: draft → in-review → approved; deprecated untuk spesifikasi yang diganti.
@@ -139,10 +140,11 @@ jangan mengaktifkan SELECT publik orders sebagai jalan pintas. Polling API 15 de
 menjadi fallback, bukan pengganti target Realtime V1. Detail SEC-01 dan F-04.
 
 ### ADR-007 · Asumsi bisnis draft — proposed
-Pajak/biaya tambahan 0 di V1 sampai aturan disetujui; tidak ada expiry otomatis;
+Pajak/biaya tambahan 0 di V1 sampai aturan disetujui;
 qty 1–99, maksimal 100 baris unik per checkout, nominal per order ≤ Rp1 miliar.
 Usulan penolakan, pelaporan ulang, dan pembatalan dirinci hanya di F-03/F-08;
-V1 belum memiliki alur refund.
+Revisi 25 November menetapkan tenggat 15 menit untuk order baru yang belum
+diklaim dan alur refund manual (F-11).
 Tenant/outlet/menu dinonaktifkan melalui soft delete; harga/menu_name/QRIS checkout
 disnapshot agar perubahan berikutnya tidak mengubah transaksi yang sudah dibuat.
 Rincian state dan otorisasi aksi hanya di Feature MD, bukan MASTER.
@@ -262,7 +264,7 @@ Estimasi PRD ±10 minggu untuk satu developer; bukan janji jadwal baru.
 ## 8. Pertanyaan terbuka (maksimal lima)
 
 1. Siapa pemilik produk/reviewer yang memberi persetujuan dokumen fondasi?
-2. Apakah V1 tanpa pajak/biaya layanan dan tanpa expiry otomatis sesuai operasional kantin?
+2. Apakah V1 tanpa pajak/biaya layanan sesuai operasional kantin?
 3. Apakah usulan batas qty 99, 100 baris checkout, dan pembatalan hanya sebelum paid dapat diterima?
 4. Apakah pengguna menyetujui capability JWT khusus tracker setelah spike Supabase membuktikan isolasinya?
 
@@ -270,6 +272,7 @@ Estimasi PRD ±10 minggu untuk satu developer; bukan janji jadwal baru.
 
 | Tanggal | Perubahan/konflik | Penyelesaian |
 |---|---|---|
+| 2026-11-25 | Pengguna meminta reset password, notifikasi chat, pembatalan otomatis, dan refund | F-09, F-10, F-02/F-08, dan F-11. Refund dicatat di web sebagai transaksi manual melalui tenant. |
 | 2026-11-24 | Pengguna meminta pelanggan bisa membalas pesan tenant | F-10 mengganti batas tanpa chat. Percakapan melekat pada order yang sudah ada. Pesan dibaca dan dikirim melalui Express. |
 | 2026-11-23 | Audit ulang alur pelanggan, tenant, dan pengelola | Keranjang bertahan saat masuk, umpan balik QRIS/status diperjelas, serta F-05 denah/outlet terhubung ke API. [Laporan audit](qa/FLOW-AUDIT-2026-11-23.md). |
 | 2026-11-21 | Vendor meminta tenant-first, katalog, akun dan notifikasi | vendor-launch.md: ownership Auth, RLS pemilik/staf, INSERT/UPDATE publication dan audio opt-in; SQL live/deploy oleh operator. |

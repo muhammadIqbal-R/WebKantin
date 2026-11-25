@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { LIMITS, ORDER_STATUSES, ORDER_TYPES, PAYMENT_METHODS, PAYMENT_STATUSES } from './constants.js';
 import { HttpsUrlSchema, IdSchema, MoneySchema, NameSchema, OrderAccessTokenSchema,
   OrderCodeSchema, PaginationQuerySchema, QuantitySchema, TimestampSchema, VersionSchema } from './common.js';
+import { OrderRefundSchema, PaymentWindowSchema, RefundStatusSchema } from './order-operations.js';
 
 export const OrderStatusSchema = z.enum(ORDER_STATUSES);
 export const PaymentStatusSchema = z.enum(PAYMENT_STATUSES);
@@ -19,6 +20,7 @@ export const OrderSchema = z.strictObject({
   payment_method: PaymentMethodSchema,
   payment_confirmed_by: IdSchema.nullable(), payment_confirmed_at: TimestampSchema.nullable(),
   version: VersionSchema, created_at: TimestampSchema, updated_at: TimestampSchema,
+  refund_status: RefundStatusSchema.optional(),
 }).superRefine((order, ctx) => {
   const validPairs: Record<z.infer<typeof OrderStatusSchema>, readonly z.infer<typeof PaymentStatusSchema>[]> = {
     menunggu_bayar: ['unpaid', 'rejected'], menunggu_konfirmasi: ['pending_confirmation'],
@@ -51,6 +53,9 @@ export const OrderDetailResponseSchema = z.strictObject({
   payment_rejection_reason: z.string().trim().min(2).max(300).optional(),
   payment_merchant_name: z.string().trim().min(2).max(150).optional(),
   chat_available: z.boolean().optional(),
+  payment_window: PaymentWindowSchema.nullable().optional(),
+  refund: OrderRefundSchema.nullable().optional(),
+  refund_available: z.boolean().optional(),
 }).superRefine((detail, ctx) => {
   const matches = detail.items.every((item) => item.order_id === detail.data.id && item.tenant_id === detail.data.tenant_id);
   const unique = new Set(detail.items.map((item) => item.menu_id)).size === detail.items.length;
@@ -78,6 +83,7 @@ export const PaymentInstructionsResponseSchema = z.strictObject({
 });
 export const AdminOrderQuerySchema = PaginationQuerySchema.extend({
   tenant_id: IdSchema.optional(), status: OrderStatusSchema.optional(), payment_status: PaymentStatusSchema.optional(),
+  refund_pending: z.literal('true').optional(),
 });
 export const AdminOrderListResponseSchema = z.strictObject({ data: z.array(OrderSchema), next_cursor: IdSchema.nullable() });
 export const TrackerTokenResponseSchema = z.strictObject({

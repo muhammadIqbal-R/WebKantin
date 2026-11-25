@@ -6,17 +6,21 @@ import {useCustomerAuth} from './customer-auth';
 type Detail=ReturnType<typeof OwnedOrdersResponseSchema.parse>['data'][number];
 type Payment=ReturnType<typeof PaymentInstructionsResponseSchema.parse>;
 type OrderRequest = <T>(path:string,schema:{parse:(value:unknown)=>T},method?:'GET'|'POST'|'PATCH',body?:unknown,extra?:Record<string,string>)=>Promise<T>;
-type Value={orders:Detail[];loading:boolean;error:string;next:string|null;reload:()=>Promise<void>;older:()=>Promise<void>;create:(input:CreateOrdersRequest)=>Promise<void>;paid:(order:Order)=>Promise<void>;payment:(id:string)=>Promise<Payment>;request:OrderRequest};
+type Value={orders:Detail[];loading:boolean;error:string;next:string|null;reload:()=>Promise<void>;older:()=>Promise<void>;create:(input:CreateOrdersRequest)=>Promise<void>;paid:(order:Order)=>Promise<void>;payment:(id:string)=>Promise<Payment>;request:OrderRequest;refreshOrder:(id:string)=>Promise<void>};
 const Context=createContext<Value|null>(null);
 export function CustomerOrders({children}:{children:ReactNode}){const {user}=useCustomerAuth();return <OwnedProvider key={user?.id??'guest'} subject={user?.id??null}>{children}</OwnedProvider>;}
 function OwnedProvider({children,subject}:{children:ReactNode;subject:string|null}){
  const [orders,setOrders]=useState<Detail[]>([]),[loading,setLoading]=useState(!!subject),[error,setError]=useState(''),[next,setNext]=useState<string|null>(null);const pages=useRef(false),generation=useRef(0),pending=useRef<{signature:string;key:string}|null>(null);
- const api=useCallback(async<T,>(path:string,schema:{parse:(value:unknown)=>T},method='GET',body?:unknown,extra?:Record<string,string>):Promise<T>=>{const base=process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/,''),auth=getCustomerAuthClient();if(!base||!auth||!subject)throw new Error('Masuk ke akun pelanggan untuk melanjutkan.');const session=await auth.auth.getSession();if(!session.data.session||session.data.session.user.id!==subject)throw new Error('Sesi sudah berakhir. Silakan masuk kembali.');const response=await fetch(base+path,{method,cache:'no-store',headers:{Authorization:'Bearer '+session.data.session.access_token,...(body===undefined?{}:{'Content-Type':'application/json'}),...extra},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(20000)});const value:unknown=await response.json();if(!response.ok){if(response.status===401||response.status===403)setOrders([]);const parsed=ApiErrorSchema.safeParse(value);throw new Error(parsed.success?parsed.data.error.message:'Pesanan belum dapat dimuat.');}return schema.parse(value);},[subject]);
+ const api=useCallback(async<T,>(path:string,schema:{parse:(value:unknown)=>T},method='GET',body?:unknown,extra?:Record<string,string>):Promise<T>=>{const base=process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/,''),auth=getCustomerAuthClient();if(!base||!auth||!subject)throw new Error('Masuk ke akun pelanggan untuk melanjutkan.');const session=await auth.auth.getSession();if(!session.data.session||session.data.session.user.id!==subject)throw new Error('Sesi sudah berakhir. Silakan masuk kembali.');const response=await fetch(base+path,{method,cache:'no-store',headers:{Authorization:'Bearer '+session.data.session.access_token,...(body===undefined?{}:{'Content-Type':'application/json'}),...extra},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(20000)});if(response.status===204)return schema.parse(null);const value:unknown=await response.json();if(!response.ok){if(response.status===401||response.status===403)setOrders([]);const parsed=ApiErrorSchema.safeParse(value);throw new Error(parsed.success?parsed.data.error.message:'Pesanan belum dapat dimuat.');}return schema.parse(value);},[subject]);
  const merge=useCallback((items:Detail[])=>setOrders(old=>{
   const map=new Map(old.map(item=>[item.data.id,item]));
   for(const item of items){
    const current=map.get(item.data.id);
-   if(!current||item.data.version>=current.data.version)map.set(item.data.id,item);
+   if(!current||item.data.version>=current.data.version){
+    const oldRefund=current?.refund;
+    const newerRefund=oldRefund&&oldRefund.version>(item.refund?.version??0);
+    map.set(item.data.id,newerRefund?{...item,refund:oldRefund}:item);
+   }
   }
   return [...map.values()].sort((a,b)=>b.data.created_at.localeCompare(a.data.created_at)||b.data.id.localeCompare(a.data.id));
  }),[]);
@@ -34,7 +38,8 @@ function OwnedProvider({children,subject}:{children:ReactNode;subject:string|nul
   await reload();
  }
  const payment=useCallback(async(id:string)=>api('/api/orders/'+id+'/payment',PaymentInstructionsResponseSchema),[api]);
+ async function refreshOrder(id:string){merge([await api('/api/orders/'+id,OrderDetailResponseSchema)]);}
  async function older(){if(!next)return;const response=await api('/api/orders?limit=100&cursor='+encodeURIComponent(next),OwnedOrdersResponseSchema);pages.current=true;merge(response.data);setNext(response.next_cursor);}
- return <Context.Provider value={{orders,loading,error,next,reload:async()=>{pages.current=false;setOrders([]);await reload();},older,create,paid,payment,request:api}}>{children}</Context.Provider>;
+ return <Context.Provider value={{orders,loading,error,next,reload:async()=>{pages.current=false;setOrders([]);await reload();},older,create,paid,payment,request:api,refreshOrder}}>{children}</Context.Provider>;
 }
 export function useCustomerOrders(){const value=useContext(Context);if(!value)throw new Error('CustomerOrders provider required');return value;}

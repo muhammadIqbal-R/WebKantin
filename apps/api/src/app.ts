@@ -14,6 +14,7 @@ import {
   OrderFeedQuerySchema,OrderFeedCursorSchema,OrderNotificationFeedSchema,OrderSchema,
   CreateOutletRequestSchema, UpdateOutletRequestSchema, OutletSchema, FloorMapResponseSchema,
   OrderMessagesQuerySchema, SendOrderMessageSchema,
+  MarkChatReadSchema, RequestRefundSchema, UpdateRefundSchema,
 } from '@kantin/shared';
 import { Database, userDto, type Tx } from './database.js';
 import { Accounts } from './accounts.js';
@@ -22,6 +23,7 @@ import { Media, readImage, normalizeImage, type MediaPurpose } from './media.js'
 import {ReplayCipher} from './replay.js';
 import {checkout,orderDto,detailDto,customerOrderDetail} from './order-service.js';
 import {listOrderMessages,sendOrderMessage} from './order-chat.js';
+import {chatInbox,markChatRead,requestRefund,updateRefund} from './order-operations.js';
 import {Prisma} from './generated/prisma/client.js';
 
 type ApiRequest = Request<Record<string,string>, unknown, unknown>;
@@ -147,23 +149,91 @@ export function createApp(deps: Dependencies): Express {
       }));
     });
   }
+  app.get('/api/chat-inbox',async(req:ApiRequest,res)=>{
+    const {sub,work}=await owner(req,res);
+    EmptyBodySchema.parse(req.query);
+    res.json(await work(tx=>chatInbox(tx,sub,'pelanggan')));
+  });
+  app.post('/api/orders/:id/messages/read',async(req:ApiRequest,res)=>{
+    const {sub,work}=await owner(req,res);
+    const {id}=IdParamsSchema.parse(req.params);
+    const {message_id}=MarkChatReadSchema.parse(req.body);
+    await work(tx=>markChatRead(tx,id,sub,'pelanggan',message_id));
+    res.sendStatus(204);
+  });
+  route('get','/api/admin/chat-inbox',false,async(req,res,work)=>{
+    EmptyBodySchema.parse(req.query);
+    res.json(await work((tx,actor)=>{
+      if(actor.role!=='tenant')throw new HttpError(403,'Kotak pesan hanya untuk tenant.');
+      return chatInbox(tx,actor.id,'tenant');
+    }));
+  });
+  route('post','/api/admin/orders/:id/messages/read',false,async(req,res,work)=>{
+    const {id}=IdParamsSchema.parse(req.params);
+    const {message_id}=MarkChatReadSchema.parse(req.body);
+    await work((tx,actor)=>{
+      if(actor.role!=='tenant')throw new HttpError(403,'Kotak pesan hanya untuk tenant.');
+      return markChatRead(tx,id,actor.id,'tenant',message_id);
+    });
+    res.sendStatus(204);
+  });
+  app.post('/api/orders/:id/refund',async(req:ApiRequest,res)=>{
+    const {work}=await owner(req,res);
+    const {id}=IdParamsSchema.parse(req.params);
+    const {reason}=RequestRefundSchema.parse(req.body);
+    const result=await work(tx=>requestRefund(tx,id,reason));
+    res.status(result.created?201:200).json(result.response);
+  });
+  route('patch','/api/admin/orders/:id/refund',false,async(req,res,work)=>{
+    const {id}=IdParamsSchema.parse(req.params);
+    const input=UpdateRefundSchema.parse(req.body);
+    res.json(await work((tx,actor)=>updateRefund(tx,id,actor.id,input)));
+  });
   const checkoutLimits=new Map<string,{until:number;count:number}>();
   app.post('/api/orders',async(req:ApiRequest,res)=>{const {sub}=await owner(req,res);const input=CreateOrdersRequestSchema.parse(req.body),header=CheckoutHeadersSchema.parse({idempotency_key:req.get('idempotency-key')});const now=Date.now();if(checkoutLimits.size>10000)for(const [id,value]of checkoutLimits)if(value.until<now)checkoutLimits.delete(id);let limit=checkoutLimits.get(sub);if(!limit||limit.until<now){if(checkoutLimits.size>=10000&&!limit)throw new HttpError(429,'Checkout sedang sibuk. Coba kembali.');limit={until:now+60000,count:0};checkoutLimits.set(sub,limit);}if(++limit.count>10)throw new HttpError(429,'Terlalu banyak percobaan checkout. Periksa pesanan lalu coba kembali.');if(!deps.db.checkout||!deps.cipher)throw new HttpError(503,'Checkout belum dikonfigurasi.');const orders=await checkout({checkout:deps.db.checkout.bind(deps.db)},deps.cipher,sub,header.idempotency_key,input,res.locals.requestId as string);res.status(201).json(orders);});
-  app.get('/api/orders',async(req:ApiRequest,res)=>{const {sub,work}=await owner(req,res),q=PaginationQuerySchema.parse(req.query);const rows=await work(async tx=>{const cursor=q.cursor?await tx.order.findFirst({where:{id:q.cursor,customerId:sub}}):null;if(q.cursor&&!cursor)throw new HttpError(404,'Pesanan tidak ditemukan.');return tx.order.findMany({where:{customerId:sub,...(cursor?{OR:[{createdAt:{lt:cursor.createdAt}},{createdAt:cursor.createdAt,id:{lt:cursor.id}}]}:{})},include:customerOrderDetail,orderBy:[{createdAt:'desc'},{id:'desc'}],take:q.limit+1});});res.json(OwnedOrdersResponseSchema.parse({data:rows.slice(0,q.limit).map(detailDto),next_cursor:rows.length>q.limit?rows[q.limit-1]?.id??null:null}));});
+  app.get('/api/orders',async(req:ApiRequest,res)=>{const {sub,work}=await owner(req,res),q=PaginationQuerySchema.parse(req.query);const rows=await work(async tx=>{const cursor=q.cursor?await tx.order.findFirst({where:{id:q.cursor,customerId:sub}}):null;if(q.cursor&&!cursor)throw new HttpError(404,'Pesanan tidak ditemukan.');return tx.order.findMany({where:{customerId:sub,...(cursor?{OR:[{createdAt:{lt:cursor.createdAt}},{createdAt:cursor.createdAt,id:{lt:cursor.id}}]}:{})},include:customerOrderDetail,orderBy:[{createdAt:'desc'},{id:'desc'}],take:q.limit+1});});res.json(OwnedOrdersResponseSchema.parse({data:rows.slice(0,q.limit).map(row=>detailDto(row)),next_cursor:rows.length>q.limit?rows[q.limit-1]?.id??null:null}));});
   async function payment(work:<T>(fn:(tx:Tx)=>Promise<T>)=>Promise<T>,id:string){const snapshot=await work(async tx=>{const row=await tx.order.findUnique({where:{id}});if(!row)throw new HttpError(404,'Pesanan tidak ditemukan.');const payment=await tx.orderPaymentSnapshot.findUniqueOrThrow({where:{orderId:id}});return {row,payment};});const url=await media().preview(snapshot.payment.qrisImageUrl,snapshot.row.tenantId);if(!url)throw new HttpError(503,'Gambar QRIS belum dapat dimuat. Coba kembali.');return PaymentInstructionsResponseSchema.parse({order_id:id,total:snapshot.row.total,qris:{image_url:url,merchant_name:snapshot.payment.merchantName}});}
   app.get('/api/orders/:id/payment',async(req:ApiRequest,res)=>{const {work}=await owner(req,res),{id}=IdParamsSchema.parse(req.params);res.json(await payment(work,id));});
   app.get('/api/orders/:id',async(req:ApiRequest,res)=>{const {work}=await owner(req,res),{id}=IdParamsSchema.parse(req.params);const row=await work(tx=>tx.order.findUnique({where:{id},include:customerOrderDetail}));if(!row)throw new HttpError(404,'Pesanan tidak ditemukan.');res.json(detailDto(row));});
   app.patch('/api/orders/:id/paid',async(req:ApiRequest,res)=>{const {work}=await owner(req,res),{id}=IdParamsSchema.parse(req.params),input=ReportPaidRequestSchema.parse(req.body);const row=await work(async tx=>{const current=await tx.order.findUnique({where:{id}});if(!current)throw new HttpError(404,'Pesanan tidak ditemukan.');if(current.status==='menunggu_konfirmasi')return current;if(current.version!==input.expected_version||current.status!=='menunggu_bayar')throw new HttpError(409,'Status pesanan sudah berubah. Muat ulang.');await tx.$queryRaw`SELECT set_config('kantin.expected_version',${String(input.expected_version)},true)`;return tx.order.update({where:{id},data:{status:'menunggu_konfirmasi'}});});res.json(OrderResponseSchema.parse({data:orderDto(row)}));});
-  route('get','/api/admin/orders',false,async(req,res,work)=>{const q=AdminOrderQuerySchema.parse(req.query);const rows=await work(async(tx,actor)=>{if(actor.role==='tenant'&&q.tenant_id&&actor.tenant_id!==q.tenant_id)throw new HttpError(403,'Tenant tidak diizinkan.');const tenantId=actor.role==='tenant'?actor.tenant_id:q.tenant_id;const cursor=q.cursor?await tx.order.findFirst({where:{id:q.cursor,...(tenantId?{tenantId}:{})}}):null;if(q.cursor&&!cursor)throw new HttpError(404,'Pesanan tidak ditemukan.');return tx.order.findMany({where:{...(tenantId?{tenantId}:{}),...(q.status?{status:q.status}:{}),...(q.payment_status?{paymentStatus:q.payment_status}:{}),...(cursor?{OR:[{createdAt:{lt:cursor.createdAt}},{createdAt:cursor.createdAt,id:{lt:cursor.id}}]}:{})},orderBy:[{createdAt:'desc'},{id:'desc'}],take:q.limit+1});});res.json(AdminOrderListResponseSchema.parse(pageResult(rows.map(orderDto),q.limit)));});
+  route('get','/api/admin/orders',false,async(req,res,work)=>{
+    const query=AdminOrderQuerySchema.parse(req.query);
+    const rows=await work(async(tx,actor)=>{
+      if(actor.role==='tenant' && query.tenant_id && actor.tenant_id!==query.tenant_id)
+        throw new HttpError(403,'Tenant tidak diizinkan.');
+      const tenantId=actor.role==='tenant' ? actor.tenant_id : query.tenant_id;
+      const scope=tenantId ? {tenantId} : {};
+      const cursor=query.cursor ? await tx.order.findFirst({where:{id:query.cursor,...scope}}) : null;
+      if(query.cursor && !cursor)throw new HttpError(404,'Pesanan tidak ditemukan.');
+      return tx.order.findMany({
+        where:{
+          ...scope,
+          ...(query.status ? {status:query.status} : {}),
+          ...(query.payment_status ? {paymentStatus:query.payment_status} : {}),
+          ...(query.refund_pending ? {refund:{is:{status:{in:['diminta','diproses']}}}} : {}),
+          ...(cursor ? {OR:[{createdAt:{lt:cursor.createdAt}},{createdAt:cursor.createdAt,id:{lt:cursor.id}}]} : {}),
+        },
+        include:{refund:{select:{status:true}}},
+        orderBy:[{createdAt:'desc'},{id:'desc'}],
+        take:query.limit+1,
+      });
+    });
+    res.json(AdminOrderListResponseSchema.parse(pageResult(rows.map(row=>({
+      ...orderDto(row), ...(row.refund ? {refund_status:row.refund.status} : {}),
+    })),query.limit)));
+  });
   async function staffOrder(tx:Tx,actor:User,id:string){
     const row=await tx.order.findFirst({
       where:{id,...(actor.role==='tenant'?{tenantId:actor.tenant_id??''}:{})},
-      include:{items:true,paymentSnapshots:{select:{merchantName:true},take:1}},
+      include:{items:true,paymentWindow:true,refund:true,paymentSnapshots:{select:{merchantName:true},take:1}},
     });
     if(!row)throw new HttpError(404,'Pesanan tidak ditemukan.');
     return row;
   }
-  route('get','/api/admin/orders/:id',false,async(req,res,work)=>{const {id}=IdParamsSchema.parse(req.params);res.json(detailDto(await work((tx,actor)=>staffOrder(tx,actor,id))));});
+  route('get','/api/admin/orders/:id',false,async(req,res,work)=>{
+    const {id}=IdParamsSchema.parse(req.params);
+    res.json(await work(async(tx,actor)=>detailDto(await staffOrder(tx,actor,id),actor.id)));
+  });
   route('get','/api/admin/orders/:id/payment',false,async(req,res,work)=>{const {id}=IdParamsSchema.parse(req.params);await work((tx,actor)=>staffOrder(tx,actor,id));res.json(await payment(fn=>work(tx=>fn(tx)),id));});
   for(const action of ['confirm-payment','status'] as const)route('patch','/api/admin/orders/:id/'+action,false,async(req,res,work)=>{const {id}=IdParamsSchema.parse(req.params);const input=action==='confirm-payment'?ConfirmPaymentRequestSchema.parse(req.body):UpdateOrderStatusRequestSchema.parse(req.body);const row=await work(async(tx,actor)=>{const current=await staffOrder(tx,actor,id);if(current.version!==input.expected_version)throw new HttpError(409,'Pesanan sudah diperbarui. Muat ulang.');const reason='reason'in input?input.reason??'':'';const status='decision'in input?input.decision==='accept'?'diproses':'menunggu_bayar':input.status;await tx.$queryRaw`SELECT set_config('kantin.expected_version',${String(input.expected_version)},true),set_config('kantin.rejection_reason',${reason},true)`;return tx.order.update({where:{id},data:{status}});});res.json(OrderResponseSchema.parse({data:orderDto(row)}));});
   route('get','/api/admin/order-notifications',false,async(req,res,work)=>{const q=OrderFeedQuerySchema.parse(req.query);let cursor:ReturnType<typeof OrderFeedCursorSchema.parse>|null=null;if(q.cursor){try{cursor=OrderFeedCursorSchema.parse(JSON.parse(Buffer.from(q.cursor,'base64url').toString('utf8')) as unknown);}catch{throw new HttpError(400,'Cursor notifikasi tidak valid.');}}const rows=await work((tx,actor)=>{const scope=actor.role==='tenant'?Prisma.sql`o.tenant_id=${actor.tenant_id}::uuid`:Prisma.sql`true`;return cursor?tx.$queryRaw<{data:unknown}[]>(Prisma.sql`SELECT to_jsonb(o)-'customer_id' AS data FROM public.orders o WHERE ${scope} AND (o.updated_at>${cursor.updated_at}::timestamptz OR(o.updated_at=${cursor.updated_at}::timestamptz AND o.id>${cursor.id}::uuid)) ORDER BY o.updated_at,o.id LIMIT 101`):tx.$queryRaw<{data:unknown}[]>(Prisma.sql`SELECT to_jsonb(o)-'customer_id' AS data FROM public.orders o WHERE ${scope} ORDER BY o.updated_at DESC,o.id DESC LIMIT 100`);});const data=(cursor?rows.slice(0,100):rows.reverse()).map(row=>OrderSchema.parse(row.data));const last=data.at(-1);const next=last?{updated_at:last.updated_at,id:last.id}:cursor??{updated_at:new Date(0).toISOString(),id:randomUUID()};res.json(OrderNotificationFeedSchema.parse({data,next_cursor:Buffer.from(JSON.stringify(next)).toString('base64url'),has_more:!!cursor&&rows.length>100}));});

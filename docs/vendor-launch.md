@@ -28,7 +28,7 @@ Import melalui tombol admin/Express, idempotent/atomik; tidak mengulang baseline
 
 JWT pelanggan diverifikasi dan kondisi Auth aktif diperiksa. Order baru terikat sub tersebut. Checkout atomik mengambil harga/snapshot DB, mengelompokkan order per tenant; input hanya ID/qty/nama/cara pesan. UUID idempotency dan hash payload termasuk owner mencegah replay lintas akun. Respons replay dienkripsi AES-256-GCM, kunci server 32 byte/nonce unik; token legacy tetap digest di DB, bukan identitas utama akun.
 
-Stok berkurang atomik saat order dibuat. Stok kurang menggagalkan seluruh checkout. Pembatalan staf sebelum paid mengembalikan stok sekali; penolakan pembayaran tidak memulihkan stok. Tanpa expiry/reset harian otomatis, pending lama dibatalkan staf. Tidak ada pembatalan paid/refund V1. QRIS dari snapshot, signed read melalui API. Saya sudah bayar hanya klaim; tenant mencocokkan mutasi sebelum terima. Semua transisi memakai version/audit server.
+Stok berkurang atomik saat order dibuat. Stok kurang menggagalkan seluruh checkout. Pembatalan sebelum paid mengembalikan stok sekali; penolakan pembayaran tidak memulihkan stok. Revisi 25 November menambah tenggat 15 menit hanya untuk order baru yang belum diklaim dan refund manual tercatat terpisah. QRIS dari snapshot, signed read melalui API. Saya sudah bayar hanya klaim; tenant mencocokkan mutasi sebelum terima. Semua transisi memakai version/audit server.
 
 ## Kontrak HTTP (Zod strict shared)
 
@@ -67,6 +67,8 @@ Tes: harga/import idempotent, tenant-first, linking staf, checkout retry/rollbac
 
    Untuk versi dengan chat pesanan, lanjutkan dengan
    [chat-upgrade.sql](../infra/supabase/chat-upgrade.sql) sekali setelah upgrade orders.
+   Paket terbaru memerlukan [order-operations-upgrade.sql](../infra/supabase/order-operations-upgrade.sql)
+   setelah upgrade chat. Lihat [konfigurasi recovery dan worker](order-operations.md).
 2. Admin pertama: di Supabase Authentication buat akun aplikasi dengan email Anda yang dapat dibuka dan password sendiri (atau gunakan akun aplikasi yang sudah terdaftar). Akun dashboard Supabase dan password database berbeda dari akun aplikasi ini. Jalankan [bootstrap-admin.example.sql](../infra/supabase/bootstrap-admin.example.sql) sebagai operator setelah mengganti admin_email. Bila role kantin_api belum LOGIN, isi password database runtime acak minimal 24 karakter pada template. Script tidak membuat Auth user, tidak membutuhkan akun tenant awal, tidak menimpa role existing dan tidak mencetak password.
 3. API: isi DATABASE_URL kantin_api, SUPABASE_URL, SUPABASE_SECRET_KEY dan dua WEB_*_ORIGIN. Jalankan `pnpm --filter @kantin/api key:setup` untuk mengisi kunci enkripsi checkout lokal jika masih kosong/placeholder. Kunci tidak dicetak. Untuk Railway, pindahkan nilai kunci tersebut secara privat ke IDEMPOTENCY_ENCRYPTION_KEY; pertahankan nilai yang sama antar-replica/deploy agar replay lama tetap terbaca. DIRECT_URL/owner credential tidak diberikan ke runtime API.
 4. Kedua frontend: NEXT_PUBLIC_API_URL adalah URL API yang aktif, NEXT_PUBLIC_SUPABASE_URL/publishable key project yang sama. Isi NEXT_PUBLIC_ADMIN_URL pada web-user dengan domain login admin; isi NEXT_PUBLIC_USER_URL pada web-admin dengan domain pelanggan. Build produksi tidak memakai fallback localhost untuk tautan antarportal yang belum diisi. Konfigurasikan redirect Auth untuk domain user `/masuk` dan domain admin `/login`; restart API/redeploy frontend setelah env berubah.

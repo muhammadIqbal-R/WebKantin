@@ -24,7 +24,7 @@ Reject: pending → menunggu_bayar/rejected, reason wajib; pemesan dapat lapor u
 Audit 23 November: detail pesanan staf memuat nama merchant dari snapshot
 pembayaran. Pemeriksaan mutasi masih bisa dilakukan saat gambar QRIS sementara
 gagal dimuat. Panel memberi tahu staf bahwa alasan penolakan terlihat oleh pemesan.
-Edge: dua operator klik bersamaan → satu commit, lainnya 409; pembayaran belum pending → 409; tenant lain → 404; terminal tidak dapat diubah; tidak ada paid→batal/refund di V1.
+Edge: dua operator klik bersamaan → satu commit, lainnya 409; pembayaran belum pending → 409; tenant lain → 404; terminal tidak dapat diubah. Pengembalian dana tercatat terpisah dari riwayat status pembayaran. Lihat [F-11](F-11-refund.md).
 
 ## 4. Kontrak API (endpoint, request, response)
 

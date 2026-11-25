@@ -2,3 +2,7 @@
 @import "@kantin/ui/tokens.css";
 @import "@kantin/ui/styles.css";
 @source "../../../packages/ui/src";
+
+.admin-back {
+  margin-block-end: var(--s4);
+}

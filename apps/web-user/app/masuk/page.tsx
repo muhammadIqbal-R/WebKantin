@@ -56,6 +56,7 @@ export default function CustomerSignInPage() {
         {mode==='signup'?<Field label="Konfirmasi password"><input className="input" type="password" required minLength={8} maxLength={128} autoComplete="new-password" value={confirmation} onChange={event=>setConfirmation(event.target.value)} /></Field>:null}
         {error?<p className="form-error" role="alert" style={{marginBottom:'var(--s4)'}}>{error}</p>:null}
         <Button className="full" type="submit" loading={busy} disabled={loading}>{mode==='signup'?'Buat akun':'Masuk'}<ArrowRight /></Button>
+        {mode==='signin' && <Link className="link-action" href="/lupa-password">Lupa password?</Link>}
       </form>
     </section>
   </div>;

@@ -98,3 +98,7 @@ Audit QA: Signup live tercatat tanpa konfirmasi karena email fiktif, lalu akun Q
 Revisi UI ADR-013: pemilih peran preview dihapus dari login dan toolbar. Form staf
 email/password tidak membuka dashboard dengan submit tanpa verifikasi. API /me
 masih belum tersedia; implementasi Auth/RBAC staf tetap pekerjaan integrasi.
+Pemulihan password 25 November: kedua halaman masuk menautkan formulir
+`/lupa-password`. Supabase Auth mengirim tautan recovery ke asal portal.
+Pemilik akun membuka tautan dan menetapkan password dengan sesi recovery
+terpisah. Respons pengiriman tidak mengungkap apakah email terdaftar.

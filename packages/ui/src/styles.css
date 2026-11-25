@@ -2597,3 +2597,17 @@ body:has(.mobile-cart) .site-footer {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.inbox-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-end: var(--s2);
+}
+.refund-panel {
+  padding: var(--s3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+}
+.refund-copy {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

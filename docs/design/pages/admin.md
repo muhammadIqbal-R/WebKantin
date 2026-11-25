@@ -39,3 +39,8 @@ Vendor 21 November: login menjelaskan akun dari admin/undangan, daftar tenant me
 Onboarding tambahan: setelah simpan tenant, buka ruang tenant yang dipilih; tampilkan nama tenant, daftar menu dengan foto/harga/stok, tombol Tambah menu, dan kelengkapan QRIS/aktivasi khusus admin. Form foto memakai preview, validasi dan pending/error. Tidak menambah pemilih peran, slogan atau kontrol demo. Palet dan font tetap.
 
 Sebelum markup baru: ikuti state dan tata letak [pengelolaan operasional](../../staff-management.md). Satu login; navigasi dari profil API; tenant/stok/user memakai data tersimpan, tanpa demo fallback. Pertahankan Poppins dan panel cream pada latar olive. Stok angka di form menu, arsip dan nonaktif user memakai konfirmasi, serta loading/error/empty/retry.
+
+Pada tiap halaman panel selain Ringkasan, tampilkan tombol kembali di atas
+konten pada desktop dan HP. Halaman utama modul kembali ke Ringkasan. Dari
+detail tenant, admin kembali ke daftar tenant dan akun tenant ke Menu & stok.
+Tujuan mengikuti struktur panel dan tetap jelas saat tautan dibuka langsung.

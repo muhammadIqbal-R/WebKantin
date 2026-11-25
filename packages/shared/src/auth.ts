@@ -25,3 +25,8 @@ export const CustomerSignUpSchema = z.strictObject({
 }).refine((value) => value.password === value.password_confirmation, {
   path: ['password_confirmation'], message: 'Password confirmation does not match',
 });
+export const RecoveryEmailSchema = CustomerSignInSchema.pick({ email:true });
+export const RecoveryPasswordSchema = z.strictObject({
+  password:CustomerSignUpSchema.shape.password, password_confirmation:CustomerSignUpSchema.shape.password_confirmation,
+})
+  .refine(value => value.password === value.password_confirmation, 'Passwords must match');

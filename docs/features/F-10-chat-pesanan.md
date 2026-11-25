@@ -31,6 +31,9 @@ Pesanan lama tanpa akun tertaut tidak memiliki peserta pelanggan.
   `OrderMessageResponseSchema`. Pengulangan payload yang sama memakai pesan lama.
 - Tanpa sesi 401, scope salah 404, pesan baru di order tertutup 409,
   body/query invalid 400, terlalu banyak pesan 429.
+- `GET /api/chat-inbox` dan `GET /api/admin/chat-inbox` mengembalikan
+  `ChatInboxSchema`. `POST .../messages/read` memakai `MarkChatReadSchema`
+  dan mengembalikan 204. Posisi baca hanya maju untuk akun tersebut.
 
 ## 5. Skema Data (rujukan ke packages/shared)
 
@@ -43,7 +46,9 @@ server untuk pagination.
 
 Teks 1–1.000 karakter setelah trim. Maksimal 12 pesan per pihak per pesanan per
 menit. Pesan tidak mengubah pembayaran, stok, atau status. Riwayat mengikuti
-pesanan. Tanpa lampiran, edit, hapus, atau notifikasi saat panel chat tertutup.
+pesanan. Tanpa lampiran, edit, atau hapus. Inbox menampilkan percakapan belum
+dibaca saat web terbuka meski dialog chat ditutup. Server menyimpan posisi baca
+per akun. Membuka chat menandai pesan yang sudah ditampilkan dalam tab aktif.
 
 ## 7. Kriteria Terima
 

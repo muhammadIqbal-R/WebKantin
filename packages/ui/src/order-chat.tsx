@@ -3,11 +3,12 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import {
   ORDER_MESSAGE_MAX, OrderMessageResponseSchema, OrderMessagesResponseSchema,
-  SendOrderMessageSchema, type OrderMessage, type OrderMessagesResponse, type OrderMessageSender,
+  MarkChatReadResponseSchema, SendOrderMessageSchema,
+  type OrderMessage, type OrderMessagesResponse, type OrderMessageSender,
 } from '@kantin/shared';
 import { Button, Field } from './primitives';
 
-type RequestChat = <T>(
+export type RequestChat = <T>(
   path: string, schema: { parse: (value: unknown) => T }, method?: 'GET' | 'POST', body?: unknown,
 ) => Promise<T>;
 
@@ -30,6 +31,7 @@ export function OrderChat({ request, path, side }: { request: RequestChat; path:
   const [actionError, setActionError] = useState('');
   const [revision, setRevision] = useState(0);
   const pending = useRef<{ id: string; text: string } | null>(null);
+  const lastRead = useRef('');
   const scrollBox = useRef<HTMLDivElement>(null);
   const followLatest = useRef(true);
 
@@ -50,6 +52,16 @@ export function OrderChat({ request, path, side }: { request: RequestChat; path:
           return { ...current, closed: current.closed || page.closed, data: mergeMessages(current.data, page.data) };
         });
         setSyncError('');
+        const latestIncoming = page.data.filter(item => item.sender !== side).at(-1);
+        if (latestIncoming && latestIncoming.id !== lastRead.current && !document.hidden) {
+          try {
+            await request(path + '/read', MarkChatReadResponseSchema, 'POST', { message_id:latestIncoming.id });
+            lastRead.current = latestIncoming.id;
+            window.dispatchEvent(new Event('kantin-chat-read'));
+          } catch {
+            // The next sync can retry the receipt without interrupting the conversation.
+          }
+        }
       } catch (failure) {
         if (active) setSyncError(failure instanceof Error ? failure.message : 'Chat belum dapat dimuat.');
       } finally { running = false; }
@@ -63,7 +75,7 @@ export function OrderChat({ request, path, side }: { request: RequestChat; path:
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [request, path, revision]);
+  }, [request, path, revision, side]);
 
   const lastMessage = thread?.data.at(-1)?.id;
   useEffect(() => {

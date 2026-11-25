@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { STATUS_LABELS, STATUS_TONES } from '@kantin/ui/demo';
-import { Badge, Button, Modal, OrderChat, formatMoney } from '@kantin/ui';
-import type { Order } from '@kantin/shared';
+import { Badge, Button, Modal, OrderChat, OrderRefundPanel, formatMoney } from '@kantin/ui';
+import type { Order, OrderDetailResponseSchema } from '@kantin/shared';
 import { useCustomerOrders } from '../../components/customer-orders';
 import { useCustomerAuth } from '../../components/customer-auth';
 
@@ -40,10 +40,12 @@ export default function OrdersPage() {
     {state.error && <p role="alert" className="form-error">{state.error}</p>}
     {actionError && <p role="alert" className="form-error">{actionError}</p>}
     <div className="order-cards">
-      {state.orders.map(({ data: order, items, payment_rejection_reason, chat_available }) => <article className="panel order-card stack" key={order.id}>
+      {state.orders.map(({ data: order, items, payment_rejection_reason, chat_available, payment_window, refund, refund_available }) => <article className="panel order-card stack" key={order.id}>
         <div className="panel-header">
           <strong className="order-code">{order.order_code}</strong>
-          <Badge tone={STATUS_TONES[order.status]}>{STATUS_LABELS[order.status]}</Badge>
+          {refund?.status==='dikembalikan' ? <Badge tone="success">Dana dikembalikan</Badge>
+            : refund?.status==='diproses' ? <Badge tone="neutral">Refund diproses</Badge>
+            : <Badge tone={STATUS_TONES[order.status]}>{STATUS_LABELS[order.status]}</Badge>}
         </div>
         <p>{order.order_type === 'dine_in' ? 'Makan di tempat' : 'Bawa pulang'} · {order.customer_name}</p>
         <div className="order-item-list">{items.map(item => <div className="row between" key={item.id}>
@@ -56,11 +58,13 @@ export default function OrdersPage() {
             {payment_rejection_reason && <p>{payment_rejection_reason}</p>}
             <p className="small">Periksa riwayat transaksi sebelum membayar atau mengirim klaim kembali.</p>
           </div>}
-          <Payment id={order.id} />
-          <Button loading={busy === order.id} disabled={!!busy} onClick={() => void paid(order)}>
-            {order.payment_status === 'rejected' ? 'Kirim ulang klaim pembayaran' : 'Saya sudah bayar'}
-          </Button>
-        </> : <p className="notice small">{statusDescription(order.status)}</p>}
+          <AwaitingPayment order={order} window={payment_window ?? null} busy={busy}
+            onPaid={() => void paid(order)} />
+        </> : refund?.status!=='diproses' && refund?.status!=='dikembalikan'
+          && <p className="notice small">{statusDescription(order.status)}</p>}
+        {payment_window?.expired_at && <p className="small">Tenggat pembayaran lewat dan stok sudah dilepas. Jika sudah transfer, ajukan refund di bawah.</p>}
+        <OrderRefundPanel refund={refund ?? null} available={refund_available ?? false} amount={order.total}
+          request={state.request} refresh={() => state.refreshOrder(order.id)} path={'/api/orders/' + order.id + '/refund'} />
         {chat_available && <Button variant="outline" size="sm"
           onClick={() => setChatOrder({id:order.id,code:order.order_code})}>Chat tenant</Button>}
       </article>)}
@@ -78,6 +82,31 @@ export default function OrdersPage() {
       setActionError('');
       void state.older().catch(() => setActionError('Riwayat belum dapat dimuat.'));
     }}>Lihat pesanan lebih lama</Button>}
+  </>;
+}
+
+function AwaitingPayment({ order, window: paymentWindow, busy, onPaid }: {
+  order:Order;
+  window:NonNullable<ReturnType<typeof OrderDetailResponseSchema.parse>['payment_window']> | null;
+  busy:string;
+  onPaid:()=>void;
+}) {
+  const deadline = order.payment_status==='unpaid' ? paymentWindow?.deadline_at : null;
+  const [due, setDue] = useState(false);
+  useEffect(()=>{
+    if (!deadline) return;
+    const timer=setTimeout(()=>setDue(true),Math.max(0,Date.parse(deadline)-Date.now()));
+    return ()=>clearTimeout(timer);
+  },[deadline]);
+  if (deadline && due) return <p className="notice small">Tenggat pembayaran lewat. Tunggu status diperbarui sebelum melanjutkan.</p>;
+  return <>
+    {deadline && <p className="small">Bayar dan klik Saya sudah bayar sebelum {
+      new Intl.DateTimeFormat('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Jakarta'}).format(new Date(deadline))
+    } WIB.</p>}
+    <Payment id={order.id} />
+    <Button loading={busy===order.id} disabled={!!busy} onClick={onPaid}>
+      {order.payment_status==='rejected' ? 'Kirim ulang klaim pembayaran' : 'Saya sudah bayar'}
+    </Button>
   </>;
 }
 

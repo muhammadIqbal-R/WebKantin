@@ -1,12 +1,15 @@
 import {createHash,randomBytes} from 'node:crypto';
-import {CreateOrdersResponseSchema,OrderSchema,OrderItemSchema,OrderDetailResponseSchema,type CreateOrdersRequest,type Order} from '@kantin/shared';
-import type {Prisma} from './generated/prisma/client.js';
+import {CreateOrdersResponseSchema,OrderSchema,OrderItemSchema,OrderDetailResponseSchema,PaymentWindowSchema,type CreateOrdersRequest,type Order} from '@kantin/shared';
+import type {Prisma,OrderRefund} from './generated/prisma/client.js';
 import type {Database} from './database.js';
 import {ReplayCipher} from './replay.js';
 import {HttpError,databaseCode} from './errors.js';
+import {refundDto} from './order-operations.js';
 export const orderDto=(row:Prisma.OrderGetPayload<object>):Order=>OrderSchema.parse({id:row.id,order_code:row.orderCode,tenant_id:row.tenantId,customer_name:row.customerName,order_type:row.orderType,total:row.total,status:row.status,payment_status:row.paymentStatus,payment_method:row.paymentMethod,payment_confirmed_by:row.paymentConfirmedBy,payment_confirmed_at:row.paymentConfirmedAt?.toISOString()??null,version:row.version,created_at:row.createdAt.toISOString(),updated_at:row.updatedAt.toISOString()});
 export const customerOrderDetail = {
   items: true,
+  paymentWindow: true,
+  refund: true,
   events: {
     where: { action: 'payment_rejected' },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -17,7 +20,9 @@ export const customerOrderDetail = {
 export function detailDto(row: Prisma.OrderGetPayload<{include:{items:true}}> & {
   events?: {reason:string|null}[];
   paymentSnapshots?: {merchantName:string}[];
-}) {
+  paymentWindow?: {deadlineAt:Date;expiredAt:Date|null}|null;
+  refund?: OrderRefund|null;
+}, actor?: string) {
   const reason = row.paymentStatus === 'rejected' ? row.events?.[0]?.reason : null;
   const merchant = row.paymentSnapshots?.[0]?.merchantName;
   return OrderDetailResponseSchema.parse({
@@ -29,6 +34,11 @@ export function detailDto(row: Prisma.OrderGetPayload<{include:{items:true}}> & 
     ...(reason ? {payment_rejection_reason:reason} : {}),
     ...(merchant ? {payment_merchant_name:merchant} : {}),
     chat_available: Boolean(row.customerId),
+    payment_window: row.paymentWindow ? PaymentWindowSchema.parse({
+      deadline_at:row.paymentWindow.deadlineAt.toISOString(),expired_at:row.paymentWindow.expiredAt?.toISOString() ?? null,
+    }) : null,
+    refund: row.refund ? refundDto(row.refund,actor) : null,
+    refund_available: Boolean(row.customerId && (row.paymentStatus==='paid' || row.paymentWindow?.expiredAt)),
   });
 }
 export async function checkout(db:Pick<Database,'checkout'>,cipher:ReplayCipher,sub:string,key:string,input:CreateOrdersRequest,requestId:string){

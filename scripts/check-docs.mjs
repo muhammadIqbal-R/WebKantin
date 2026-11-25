@@ -15,7 +15,7 @@ async function markdownFiles(dir) {
 }
 const master = await readFile(path.join(root, 'docs/MASTER.md'), 'utf8');
 const features = (await readdir(path.join(root, 'docs/features'))).filter((file) => /^F-\d{2}-.+\.md$/.test(file)).sort();
-assert.equal(features.length, 10, 'All ten feature specifications must exist');
+assert.equal(features.length, 11, 'All eleven feature specifications must exist');
 for (const [index, file] of features.entries()) {
   const text = await readFile(path.join(root, 'docs/features', file), 'utf8');
   assert.ok(file.startsWith('F-' + String(index + 1).padStart(2, '0')), 'Feature IDs must be consecutive');

@@ -71,3 +71,7 @@ Kontrak: harga/status/tenant injection, qty pecahan/0, nama spasi, duplikat. Int
 Implementasi database: [SQL dan panduan pemasangan](../../infra/supabase/README.md),
 [mapping data](../data-model.md), dan [24 tes lokal](../database-validation.md).
 Endpoint/layanan fitur belum dihubungkan; status spesifikasi tetap draft.
+Revisi 25 November: order baru mempunyai tenggat pembayaran 15 menit. Order yang
+masih belum pernah diklaim saat tenggat lewat dibatalkan oleh worker API dan
+stoknya dipulihkan dalam transaksi yang sama. Klaim yang sedang diverifikasi,
+klaim ditolak, dan pembayaran yang diterima tidak kedaluwarsa otomatis.

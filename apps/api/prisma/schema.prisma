@@ -138,6 +138,9 @@ model Order {
   paymentSnapshots OrderPaymentSnapshot[]
   events OrderEvent[]
   messages OrderMessage[]
+  paymentWindow OrderPaymentWindow?
+  refund OrderRefund?
+  chatReceipts OrderChatReceipt[]
   @@unique([id,tenantId])
   @@index([tenantId,createdAt,id],map:"orders_tenant_created_idx")
   @@index([customerId,createdAt,id],map:"orders_customer_created_idx")
@@ -145,6 +148,41 @@ model Order {
   @@index([tenantId,paymentStatus,createdAt,id],map:"orders_tenant_payment_idx")
   @@map("orders")
   @@schema("public")
+}
+model OrderPaymentWindow {
+  orderId String @id @map("order_id") @db.Uuid
+  deadlineAt DateTime @map("deadline_at") @db.Timestamptz(6)
+  expiredAt DateTime? @map("expired_at") @db.Timestamptz(6)
+  order Order @relation(fields:[orderId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  @@map("order_payment_windows")
+  @@schema("app_private")
+}
+model OrderRefund {
+  orderId String @id @map("order_id") @db.Uuid
+  source String @default("paid") @db.VarChar(14)
+  amount Int @default(0)
+  reason String @db.VarChar(300)
+  status String @default("diminta") @db.VarChar(16)
+  version Int @default(1)
+  processorId String? @map("processor_id") @db.Uuid
+  takenAt DateTime? @map("taken_at") @db.Timestamptz(6)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(6)
+  resolvedBy String? @map("resolved_by") @db.Uuid
+  resolutionNote String? @map("resolution_note") @db.VarChar(300)
+  transferRef String? @map("transfer_ref") @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  order Order @relation(fields:[orderId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  @@map("order_refunds")
+  @@schema("app_private")
+}
+model OrderChatReceipt {
+  orderId String @map("order_id") @db.Uuid
+  readerId String @map("reader_id") @db.Uuid
+  lastReadSequence BigInt @map("last_read_sequence")
+  order Order @relation(fields:[orderId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  @@id([orderId,readerId])
+  @@map("order_chat_receipts")
+  @@schema("app_private")
 }
 model OrderMessage {
   orderId String @map("order_id") @db.Uuid

@@ -1,17 +1,17 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
 import {AdminOrderListResponseSchema,OrderDetailResponseSchema,OrderResponseSchema,type Order} from '@kantin/shared';
-import {Badge,Button,Field,Modal,OrderChat,formatMoney} from '@kantin/ui';
+import {Badge,Button,Field,Modal,OrderChat,OrderRefundPanel,formatMoney} from '@kantin/ui';
 import {STATUS_LABELS,STATUS_TONES} from '@kantin/ui/demo';
 import {useLoad,useManagement} from '../../components/management';
 import {DataState} from '../../components/data-state';
 export default function OrdersPage(){
- const {request}=useManagement();const [status,setStatus]=useState(''),[query,setQuery]=useState(''),[cursor,setCursor]=useState(''),[selected,setSelected]=useState<Order|null>(null);
- const load=useCallback(()=>request('/api/admin/orders?limit=50'+(status?'&status='+status:'')+(cursor?'&cursor='+cursor:''),AdminOrderListResponseSchema),[request,status,cursor]);const state=useLoad(load);
+ const {request}=useManagement();const [status,setStatus]=useState(''),[query,setQuery]=useState(''),[cursor,setCursor]=useState(''),[refundOnly,setRefundOnly]=useState(false),[selected,setSelected]=useState<Order|null>(null);
+ const load=useCallback(()=>request('/api/admin/orders?limit=50'+(status?'&status='+status:'')+(cursor?'&cursor='+cursor:'')+(refundOnly?'&refund_pending=true':''),AdminOrderListResponseSchema),[request,status,cursor,refundOnly]);const state=useLoad(load);
  const reload=state.reload;
  useEffect(()=>{const refresh=()=>void reload();const timer=setInterval(refresh,5000);window.addEventListener('kantin-order-update',refresh);return()=>{clearInterval(timer);window.removeEventListener('kantin-order-update',refresh);};},[reload]);
  const rows=state.data?.data.filter(order=>(order.order_code+' '+order.customer_name).toLocaleLowerCase('id').includes(query.toLocaleLowerCase('id')))??[];
- return <><div className="page-intro"><div><h1>Pesanan</h1><p>Periksa pembayaran dan siapkan pesanan tenant.</p></div><Button variant="outline" onClick={()=>void state.reload()}>Muat ulang</Button></div><section className="panel stack"><div className="filters"><select className="select" aria-label="Filter status" value={status} onChange={event=>{setStatus(event.target.value);setCursor('');}}><option value="">Semua status</option>{Object.entries(STATUS_LABELS).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><input className="input" placeholder="Cari kode atau nama" aria-label="Cari pesanan" value={query} onChange={event=>setQuery(event.target.value)}/></div><DataState {...state} retry={state.reload}/><div className="table-wrap" tabIndex={0} aria-label="Daftar pesanan"><table className="data-table"><thead><tr><th>Pesanan</th><th>Pemesan</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{rows.map(order=><tr key={order.id}><td><strong>{order.order_code}</strong><p className="small muted">{new Date(order.created_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})}</p></td><td>{order.customer_name}</td><td className="numeric">{formatMoney(order.total)}</td><td><Badge tone={STATUS_TONES[order.status]}>{STATUS_LABELS[order.status]}</Badge></td><td><Button size="sm" variant="outline" onClick={()=>setSelected(order)}>{order.status==='menunggu_konfirmasi'?'Periksa pembayaran':'Detail'}</Button></td></tr>)}</tbody></table></div>{!state.loading&&!state.error&&!rows.length?<p>Belum ada pesanan yang cocok.</p>:null}<div className="row between"><Button variant="outline" disabled={!cursor} onClick={()=>setCursor('')}>Terbaru</Button><Button variant="outline" disabled={!state.data?.next_cursor} onClick={()=>setCursor(state.data?.next_cursor??'')}>Lebih lama</Button></div></section><Modal open={!!selected} onOpenChange={open=>{if(!open)setSelected(null);}} title="Detail pesanan" description={selected?.order_code??''}>{selected?<OrderDetail key={selected.id} id={selected.id} done={async()=>{setSelected(null);await state.reload();}}/>:null}</Modal></>;
+ return <><div className="page-intro"><div><h1>Pesanan</h1><p>Periksa pembayaran dan siapkan pesanan tenant.</p></div><Button variant="outline" onClick={()=>void state.reload()}>Muat ulang</Button></div><section className="panel stack"><div className="filters"><select className="select" aria-label="Filter status" value={status} onChange={event=>{setStatus(event.target.value);setCursor('');}}><option value="">Semua status</option>{Object.entries(STATUS_LABELS).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><input className="input" placeholder="Cari kode atau nama" aria-label="Cari pesanan" value={query} onChange={event=>setQuery(event.target.value)}/></div><label className="row"><input type="checkbox" checked={refundOnly} onChange={event=>{setRefundOnly(event.target.checked);setCursor('');if(event.target.checked)setStatus('');}}/>Refund perlu ditangani</label><DataState {...state} retry={state.reload}/><div className="table-wrap" tabIndex={0} aria-label="Daftar pesanan"><table className="data-table"><thead><tr><th>Pesanan</th><th>Pemesan</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{rows.map(order=><tr key={order.id}><td><strong>{order.order_code}</strong><p className="small muted">{new Date(order.created_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})}</p></td><td>{order.customer_name}</td><td className="numeric">{formatMoney(order.total)}</td><td><Badge tone={STATUS_TONES[order.status]}>{STATUS_LABELS[order.status]}</Badge>{order.refund_status?<p className="small">Refund {order.refund_status}</p>:null}</td><td><Button size="sm" variant="outline" onClick={()=>setSelected(order)}>{order.status==='menunggu_konfirmasi'?'Periksa pembayaran':'Detail'}</Button></td></tr>)}</tbody></table></div>{!state.loading&&!state.error&&!rows.length?<p>Belum ada pesanan yang cocok.</p>:null}<div className="row between"><Button variant="outline" disabled={!cursor} onClick={()=>setCursor('')}>Terbaru</Button><Button variant="outline" disabled={!state.data?.next_cursor} onClick={()=>setCursor(state.data?.next_cursor??'')}>Lebih lama</Button></div></section><Modal open={!!selected} onOpenChange={open=>{if(!open)setSelected(null);}} title="Detail pesanan" description={selected?.order_code??''}>{selected?<OrderDetail key={selected.id} id={selected.id} onRefundChanged={reload} done={async()=>{setSelected(null);await state.reload();}}/>:null}</Modal></>;
 }
 const confirmationText = {
   accept: 'Terima pembayaran dan mulai siapkan pesanan?',
@@ -21,12 +21,14 @@ const confirmationText = {
   dibatalkan: 'Batalkan pesanan dan kembalikan stok?',
 };
 
-function OrderDetail({ id, done }: { id: string; done: () => Promise<void> }) {
+function OrderDetail({ id, done, onRefundChanged }: { id: string; done: () => Promise<void>; onRefundChanged: () => Promise<void> }) {
   const { actor, request } = useManagement();
   const load = useCallback(() => request('/api/admin/orders/' + id, OrderDetailResponseSchema), [request, id]);
   const state = useLoad(load);
   const order = state.data?.data;
   const merchant = state.data?.payment_merchant_name;
+  const refund = state.data?.refund ?? null;
+  const stopFulfillment = refund?.status === 'diproses' || refund?.status === 'dikembalikan';
   const [reason, setReason] = useState('');
   const [action, setAction] = useState<keyof typeof confirmationText | null>(null);
   const [busy, setBusy] = useState(false);
@@ -90,8 +92,8 @@ function OrderDetail({ id, done }: { id: string; done: () => Promise<void> }) {
           <Button disabled={!merchant} onClick={() => setAction('accept')}>Terima pembayaran</Button>
           <Button variant="danger" onClick={() => setAction('reject')}>Tolak</Button>
         </>}
-        {order.status === 'diproses' && <Button onClick={() => setAction('siap')}>Tandai siap</Button>}
-        {order.status === 'siap' && <Button onClick={() => setAction('selesai')}>Selesai</Button>}
+        {order.status === 'diproses' && !stopFulfillment && <Button onClick={() => setAction('siap')}>Tandai siap</Button>}
+        {order.status === 'siap' && !stopFulfillment && <Button onClick={() => setAction('selesai')}>Selesai</Button>}
         {(order.status === 'menunggu_bayar' || order.status === 'menunggu_konfirmasi') &&
           <Button variant="outline" onClick={() => setAction('dibatalkan')}>Batalkan pesanan</Button>}
       </div>}
@@ -102,6 +104,8 @@ function OrderDetail({ id, done }: { id: string; done: () => Promise<void> }) {
         Muat ulang detail
       </Button>
     </div>}
+    {order && <OrderRefundPanel refund={refund} available={false} amount={order.total} staff
+      path={'/api/admin/orders/' + id + '/refund'} request={request} refresh={async()=>{await Promise.all([state.reload(),onRefundChanged()]);}} />}
     {actor?.role === 'tenant' && state.data?.chat_available && <>
       <Button variant="outline" size="sm" aria-expanded={chatOpen}
         onClick={() => setChatOpen(open => !open)}>{chatOpen ? 'Tutup chat' : 'Chat pelanggan'}</Button>

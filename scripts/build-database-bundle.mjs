@@ -30,4 +30,8 @@ const operationsUpgrade = await readFile(path.join(root,'apps/api/prisma/migrati
 const operationsTarget = path.join(root,'infra/supabase/order-operations-upgrade.sql');
 if (process.argv.includes('--check')) assert.equal(await readFile(operationsTarget,'utf8'),operationsUpgrade,'Order operations upgrade is stale; run pnpm db:bundle');
 else await writeFile(operationsTarget,operationsUpgrade);
+const fulfillmentUpgrade = await readFile(path.join(root,'apps/api/prisma/migrations/202611250002_order_fulfillment/migration.sql'),'utf8');
+const fulfillmentTarget = path.join(root,'infra/supabase/order-fulfillment-upgrade.sql');
+if (process.argv.includes('--check')) assert.equal(await readFile(fulfillmentTarget,'utf8'),fulfillmentUpgrade,'Fulfillment upgrade is stale; run pnpm db:bundle');
+else await writeFile(fulfillmentTarget,fulfillmentUpgrade);
 

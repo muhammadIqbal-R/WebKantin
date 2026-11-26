@@ -14,3 +14,4 @@ export { OrderChat } from './order-chat';
 export { PasswordRecovery, type RecoveryClient } from './password-recovery';
 export { ChatInbox } from './chat-inbox';
 export { OrderRefundPanel } from './order-refund';
+export { FulfillmentDetails } from './fulfillment-details';

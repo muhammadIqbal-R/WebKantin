@@ -37,3 +37,7 @@ Revisi onboarding 20 November: tata letak katalog tetap, data/foto berasal dari 
 Permintaan pengguna ADR-016: Poppins untuk judul, isi, tombol, navigasi dan angka.
 Gunakan berkas lokal weight 400/500/600/700, pertahankan palet olive/cream dan logo.
 Periksa ulang label kategori, header HP dan tabel karena lebar huruf berubah.
+
+Stok diperbarui di belakang layar pada beranda tenant, daftar menu, dan
+checkout. Pertahankan posisi layar, pencarian, dan input saat pembaruan.
+Jika gagal, tampilkan satu pemberitahuan kecil dengan tindakan Coba lagi.

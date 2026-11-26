@@ -2607,7 +2607,11 @@ body:has(.mobile-cart) .site-footer {
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius-md);
 }
-.refund-copy {
+.refund-copy,
+.fulfillment-note {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+.checkout-fulfillment {
+  margin-block-start: var(--s5);
 }

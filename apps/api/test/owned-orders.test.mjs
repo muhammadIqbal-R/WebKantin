@@ -5,9 +5,17 @@ import {makeDatabase,readSql,baselineUrl,seedUrl,transact} from './sql-support.m
 import {OrderSchema} from '@kantin/shared';
 let db;const admin=randomUUID(),staffA=randomUUID(),staffB=randomUUID(),customerA=randomUUID(),customerB=randomUUID(),A='20000000-0000-4000-8000-000000000001',B=randomUUID(),M='40000000-0000-4000-8000-000000000001',MB=randomUUID();let orderA,orderB;
 const context=()=>({'kantin.request_id':randomUUID()});const staff=id=>({...context(),'kantin.actor_kind':'staff','kantin.actor_id':id});const customer=id=>({...context(),'kantin.actor_kind':'customer_account','kantin.actor_id':id});const owner=fn=>transact(db,'owner',{...context(),'kantin.actor_kind':'maintenance'},fn);
-async function create(buyer,lines,minutes=15){const key=randomUUID(),hash='a'.repeat(64);return transact(db,'api',{...context(),'kantin.actor_kind':'checkout','kantin.customer_id':buyer,'kantin.checkout_id':key,'kantin.request_hash':hash,...(minutes===null?{}:{'kantin.unpaid_ttl_minutes':minutes})},async sql=>{
+async function create(buyer,lines,minutes=15,details){const key=randomUUID(),hash='a'.repeat(64);return transact(db,'api',{...context(),'kantin.actor_kind':'checkout','kantin.customer_id':buyer,'kantin.checkout_id':key,'kantin.request_hash':hash,...(minutes===null?{}:{'kantin.unpaid_ttl_minutes':minutes})},async sql=>{
  await sql.query('INSERT INTO app_private.checkout_requests(idempotency_key,request_hash) VALUES($1,$2)',[key,hash]);const orders=[];
- for(const {tenant,menu,qty} of lines){const price=(await sql.query('SELECT price FROM public.menus WHERE id=$1',[menu])).rows[0].price;const row=(await sql.query("INSERT INTO public.orders(tenant_id,customer_name,order_type,total) VALUES($1,'Pemesan uji','take_away',$2) RETURNING *",[tenant,qty*price])).rows[0];await sql.query("INSERT INTO public.order_items(order_id,tenant_id,menu_id,menu_name,qty,unit_price,subtotal) VALUES($1,$2,$3,'server snapshot',$4,1,1)",[row.id,tenant,menu,qty]);await sql.query('INSERT INTO app_private.order_access_grants(order_id,tenant_id,token_digest) VALUES($1,$2,$3)',[row.id,tenant,createHash('sha256').update(randomBytes(32)).digest('hex')]);orders.push(row);}
+ for(const {tenant,menu,qty} of lines){
+  const price=(await sql.query('SELECT price FROM public.menus WHERE id=$1',[menu])).rows[0].price;
+  const row=(await sql.query("INSERT INTO public.orders(tenant_id,customer_name,order_type,total) VALUES($1,'Pemesan uji',$2,$3) RETURNING *",[tenant,details?.type??'take_away',qty*price])).rows[0];
+  if(details)await sql.query('INSERT INTO app_private.order_fulfillment_details(order_id,table_number,pickup_note) VALUES($1,$2,$3) RETURNING order_id',
+   [row.id,details.table??null,details.note??null]);
+  await sql.query("INSERT INTO public.order_items(order_id,tenant_id,menu_id,menu_name,qty,unit_price,subtotal) VALUES($1,$2,$3,'server snapshot',$4,1,1)",[row.id,tenant,menu,qty]);
+  await sql.query('INSERT INTO app_private.order_access_grants(order_id,tenant_id,token_digest) VALUES($1,$2,$3)',[row.id,tenant,createHash('sha256').update(randomBytes(32)).digest('hex')]);
+  orders.push(row);
+ }
  await sql.query('UPDATE app_private.checkout_requests SET response_ciphertext=$2 WHERE idempotency_key=$1',[key,'v1:'+randomBytes(48).toString('base64url')]);return orders;
 });}
 const rt=id=>({'request.jwt.claims':JSON.stringify({sub:id,role:'authenticated',aud:'authenticated',exp:Math.floor(Date.now()/1000)+300})});
@@ -180,4 +188,23 @@ test('chat read receipts are scoped to the signed-in participant',async()=>{
  const list=scope=>transact(db,'api',scope,sql=>sql.query('SELECT reader_id FROM app_private.order_chat_receipts'));
  assert.deepEqual((await list(customer(customerB))).rows,[{reader_id:customerB}]);
  assert.deepEqual((await list(staff(staffB))).rows,[]);
+});
+test('order fulfillment stays private and only dine-in may set a table',async()=>{
+ const migration=await readSql(new URL('../../../infra/supabase/order-fulfillment-upgrade.sql',import.meta.url));
+ await db.exec(migration);
+ const line=[{tenant:B,menu:MB,qty:1}];
+ const old=(await db.query('SELECT count(*)::int AS count FROM app_private.order_fulfillment_details')).rows[0];
+ assert.equal(old.count,0);
+ await assert.rejects(()=>create(customerA,line,15,{type:'take_away',table:'A-12'}),{code:'42501'});
+ const [dineIn]=await create(customerA,line,15,{type:'dine_in',table:'A-12',note:'Meja dekat pintu'});
+ const [takeaway]=await create(customerA,line,15,{type:'take_away',note:'Ambil di kasir'});
+ const read=(scope,id)=>transact(db,'api',scope,async query=>(await query.query(
+  'SELECT table_number,pickup_note FROM app_private.order_fulfillment_details WHERE order_id=$1',[id],
+ )).rows);
+ const expected=[{table_number:'A-12',pickup_note:'Meja dekat pintu'}];
+ for(const scope of [customer(customerA),staff(staffB),staff(admin)])assert.deepEqual(await read(scope,dineIn.id),expected);
+ for(const scope of [customer(customerB),staff(staffA),{'kantin.actor_kind':'public'}])assert.deepEqual(await read(scope,dineIn.id),[]);
+ assert.deepEqual(await read(customer(customerA),takeaway.id),[{table_number:null,pickup_note:'Ambil di kasir'}]);
+ await assert.rejects(()=>transact(db,'authenticated',rt(customerA),sql=>sql.query('SELECT pickup_note FROM app_private.order_fulfillment_details')),{code:'42501'});
+ await assert.rejects(()=>transact(db,'api',staff(staffB),sql=>sql.query('UPDATE app_private.order_fulfillment_details SET pickup_note=$1 WHERE order_id=$2',['Diubah',dineIn.id])),{code:'42501'});
 });

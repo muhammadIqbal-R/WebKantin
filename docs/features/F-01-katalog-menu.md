@@ -1,7 +1,7 @@
 # F-01 · Katalog Tenant dan Menu
 **Status:** draft
 **Pemilik:** Lead Full-Stack Engineer
-**Terakhir diperbarui:** 2026-11-12
+**Terakhir diperbarui:** 2026-11-25
 **Terkait:** F-02, F-05, F-07, DESIGN-01, SEC-02
 
 Istilah mengikuti [MASTER](../MASTER.md); detail ini merupakan kontrak rencana, belum endpoint aktif.
@@ -20,6 +20,11 @@ Sebagai pemesan, saya dapat memilih tenant, melihat foto/harga/menu tersedia, da
 
 Vendor 21 November: beranda memilih tenant dahulu; menu ada di `/tenant/:id`, tanpa auto memilih tenant pertama. Harga/menu awal sesuai [vendor launch](../vendor-launch.md).
 
+Revisi 25 November: katalog dan checkout yang terlihat memeriksa stok kira-kira
+setiap 15 detik dan saat tab kembali aktif. Refresh ringan hanya membawa data
+stok dari menu aktif. Label Habis dan tombol tambah mengikuti stok terbaru.
+Jika gagal, pertahankan tampilan dan keranjang serta tawarkan muat ulang.
+
 Revisi onboarding 20 November: katalog pelanggan membaca tenant/menu aktif melalui Express, termasuk foto, kategori, deskripsi dan stok. Request gagal menampilkan error/retry tanpa fixture produksi. Tenant draft/arsip tidak tampil. Checkout masih simulasi terpisah sampai integrasi pemesanan disetujui/selesai.
 
 Happy path awal: buka katalog kantin fakultas → muat tenant aktif dari API → pilih otomatis satu tenant yang tersedia → tampilkan menu → tambah item. Tidak ada langkah memilih fakultas/outlet pada rilis awal.
@@ -30,6 +35,8 @@ Edge: belum ada tenant/menu → empty state; menu tidak tersedia tetap tampil di
 
 `GET /api/tenants?outlet_id=<uuid>&limit=20&cursor=<uuid>` publik. Query TenantListQuerySchema → 200 TenantListResponseSchema.
 `GET /api/tenants/:tenant_id/menus?limit=20&cursor=<uuid>` publik. Params TenantParamsSchema + query PaginationQuerySchema → 200 MenuListResponseSchema.
+`GET /api/catalog/stock?limit=100&cursor=<uuid>` menggunakan PaginationQuerySchema
+dan mengembalikan CatalogStockResponseSchema (ID, stok, dan ketersediaan).
 400 input salah; 404 tenant tidak aktif/tidak ada; 429 rate limit; 500 error aman. Format error mengikuti [konvensi API](../api-conventions.md).
 
 ## 5. Skema Data (rujukan ke packages/shared)

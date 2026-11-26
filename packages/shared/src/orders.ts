@@ -36,11 +36,25 @@ export const OrderSchema = z.strictObject({
   }
 });
 
-// Client sends identifiers and quantities only. Prices and tenant grouping are server-owned.
+export const TABLE_NUMBER_MAX = 16;
+export const PICKUP_NOTE_MAX = 200;
+export const TableNumberSchema = z.string().trim().max(TABLE_NUMBER_MAX).regex(/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/);
+export const PickupNoteSchema = z.string().trim().min(1).max(PICKUP_NOTE_MAX);
+export const OrderFulfillmentSchema = z.strictObject({
+  table_number: TableNumberSchema.nullable(),
+  pickup_note: PickupNoteSchema.nullable(),
+}).refine(details => details.table_number !== null || details.pickup_note !== null,'Fulfillment details must not be empty');
+
+// Prices, availability, and tenant grouping are server-owned.
 export const CreateOrdersRequestSchema = z.strictObject({
   customer_name: NameSchema, order_type: OrderTypeSchema,
+  table_number: TableNumberSchema.optional(),
+  pickup_note: PickupNoteSchema.optional(),
   items: z.array(z.strictObject({ menu_id: IdSchema, qty: QuantitySchema })).min(1).max(LIMITS.maxCartLines),
 }).superRefine((cart, ctx) => {
+  if (cart.table_number !== undefined && cart.order_type !== 'dine_in') {
+    ctx.addIssue({ code:'custom', path:['table_number'], message:'Table number requires dine-in' });
+  }
   if (new Set(cart.items.map((item) => item.menu_id)).size !== cart.items.length) {
     ctx.addIssue({ code: 'custom', path: ['items'], message: 'Duplicate menu identifiers' });
   }
@@ -56,12 +70,16 @@ export const OrderDetailResponseSchema = z.strictObject({
   payment_window: PaymentWindowSchema.nullable().optional(),
   refund: OrderRefundSchema.nullable().optional(),
   refund_available: z.boolean().optional(),
+  fulfillment: OrderFulfillmentSchema.optional(),
 }).superRefine((detail, ctx) => {
   const matches = detail.items.every((item) => item.order_id === detail.data.id && item.tenant_id === detail.data.tenant_id);
   const unique = new Set(detail.items.map((item) => item.menu_id)).size === detail.items.length;
   const total = detail.items.reduce((sum, item) => sum + item.subtotal, 0);
   if (!matches || !unique || total !== detail.data.total) {
     ctx.addIssue({ code: 'custom', path: ['items'], message: 'Invalid order ownership or total' });
+  }
+  if (detail.fulfillment?.table_number && detail.data.order_type !== 'dine_in') {
+    ctx.addIssue({ code:'custom', path:['fulfillment','table_number'], message:'Table number requires dine-in' });
   }
 });
 export const CheckoutOrderSchema = z.strictObject({
@@ -90,6 +108,7 @@ export const TrackerTokenResponseSchema = z.strictObject({
   access_token: z.string().min(1).max(8192), expires_at: TimestampSchema, order_id: IdSchema,
 });
 export type Order = z.infer<typeof OrderSchema>;
+export type OrderFulfillment = z.infer<typeof OrderFulfillmentSchema>;
 export type OrderItem = z.infer<typeof OrderItemSchema>;
 export type OrderStatus = z.infer<typeof OrderStatusSchema>;
 export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;

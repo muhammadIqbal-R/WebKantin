@@ -272,6 +272,7 @@ Estimasi PRD ±10 minggu untuk satu developer; bukan janji jadwal baru.
 
 | Tanggal | Perubahan/konflik | Penyelesaian |
 |---|---|---|
+| 2026-11-25 | Pengguna meminta nomor meja, catatan pengambilan, dan pembaruan stok katalog | F-01 dan F-02. Stok dibaca lewat Express. Keterangan pengambilan tersimpan privat per order. |
 | 2026-11-25 | Pengguna meminta reset password, notifikasi chat, pembatalan otomatis, dan refund | F-09, F-10, F-02/F-08, dan F-11. Refund dicatat di web sebagai transaksi manual melalui tenant. |
 | 2026-11-24 | Pengguna meminta pelanggan bisa membalas pesan tenant | F-10 mengganti batas tanpa chat. Percakapan melekat pada order yang sudah ada. Pesan dibaca dan dikirim melalui Express. |
 | 2026-11-23 | Audit ulang alur pelanggan, tenant, dan pengelola | Keranjang bertahan saat masuk, umpan balik QRIS/status diperjelas, serta F-05 denah/outlet terhubung ke API. [Laporan audit](qa/FLOW-AUDIT-2026-11-23.md). |

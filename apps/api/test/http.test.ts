@@ -13,7 +13,8 @@ import sharp from 'sharp';
 let server:Server,base:string;const adminId=randomUUID(),tenantId=randomUUID();
 const actor=(id:string):User=>({id,role:id===adminId?'admin_pengelola':'tenant',tenant_id:id===adminId?null:tenantId,email:'qa@example.test',is_active:true,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
 const calls={invite:0,ban:0,writes:0,upload:0};
-const db:Pick<Database,'staff'|'catalog'>={async staff(sub,_request,work){if(sub==='disabled')throw new HttpError(403,'Akun nonaktif.');const tx={$queryRaw:async()=>[],tenant:{findUnique:async()=>({id:tenantId,archivedAt:null})},menu:{updateMany:async()=>{calls.writes++;return {count:0};},findFirst:async()=>({id:tenantId,tenantId,stock:5})}} as unknown as Tx;return work(tx,actor(sub));},async catalog(_request,work){return work({tenant:{findMany:async()=>[]},menu:{findMany:async()=>[]}} as unknown as Tx);}};
+const catalogItem={id:randomUUID(),stock:3,isAvailable:true};
+const db:Pick<Database,'staff'|'catalog'>={async staff(sub,_request,work){if(sub==='disabled')throw new HttpError(403,'Akun nonaktif.');const tx={$queryRaw:async()=>[],tenant:{findUnique:async()=>({id:tenantId,archivedAt:null})},menu:{updateMany:async()=>{calls.writes++;return {count:0};},findFirst:async()=>({id:tenantId,tenantId,stock:5})}} as unknown as Tx;return work(tx,actor(sub));},async catalog(_request,work){return work({tenant:{findMany:async()=>[]},menu:{findMany:async(args:{select?:{stock?:boolean}})=>args.select?.stock?[catalogItem]:[]}} as unknown as Tx);}};
 before(async()=>{
   const app=createApp({db,media:{upload:async()=>{calls.upload++;return 'https://qa.supabase.co/storage/v1/object/public/menu-photos/'+tenantId+'/'+randomUUID()+'.webp';},assertAsset:async()=>{},preview:async()=>null},verify:async token=>{if(token==='admin')return adminId;if(token==='tenant')return tenantId;if(token==='disabled')return 'disabled';throw new HttpError(401,'Sesi invalid.');},accounts:{list:async()=>[],invite:async()=>{calls.invite++;throw new Error('No live calls');},setActive:async()=>{calls.ban++;}},origins:['http://localhost:3001']});
   server=app.listen(0,'127.0.0.1');await new Promise<void>(resolve=>server.once('listening',resolve));const address=server.address();assert.ok(address&&typeof address!=='string');base='http://127.0.0.1:'+address.port;
@@ -229,4 +230,17 @@ test('order chat HTTP supports tenant-to-customer replies, cursor history, and s
     assert.equal((await chat(customerPath,'owner',second)).status,200);
     assert.equal((await (await chat(staffPath,'staff')).json()).closed,true);
   }finally{await new Promise<void>((resolve,reject)=>testApp.close(error=>error?reject(error):resolve()));}
+});
+test('public stock refresh returns live quantities without exposing management or menu metadata',async()=>{
+  const path='/api/catalog/stock?limit=100';
+  assert.equal((await call('/api/catalog/stock?limit=101')).status,400);
+  try {
+    const before=await call(path);
+    assert.equal(before.status,200);
+    assert.equal(before.headers.get('cache-control'),'no-store');
+    assert.deepEqual(await before.json(),{data:[{id:catalogItem.id,stock:3,is_available:true}],next_cursor:null});
+    catalogItem.stock=0;
+    const soldOut=await call(path);
+    assert.deepEqual(await soldOut.json(),{data:[{id:catalogItem.id,stock:0,is_available:false}],next_cursor:null});
+  }finally{catalogItem.stock=3;}
 });

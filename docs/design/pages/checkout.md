@@ -27,3 +27,8 @@ menampilkan aksi hapus untuk item yang hilang dari katalog, serta pesan/kontrol
 jumlah untuk stok berubah. Login dari menu/akun kembali ke beranda bila keranjang
 kosong. Halaman pesanan menampilkan pesan khusus saat pembayaran ditolak dan
 tombol retry jika gambar QRIS gagal.
+
+Setelah pilihan cara pesan, tampilkan Nomor meja (opsional) hanya untuk makan
+di tempat. Di bawahnya, tampilkan Catatan untuk tenant (opsional). Gunakan form
+satu kolom di HP. Detail order menampilkan keterangan dengan label yang sama,
+dan menyembunyikan bagian tersebut jika kosong.

@@ -15,6 +15,10 @@ export const ManagedMenuResponseSchema = z.strictObject({ data: ManagedMenuSchem
 export const ManagedTenantPatchSchema = UpdateTenantRequestSchema.safeExtend({ archived: z.boolean().optional() });
 export const ManagementQuerySchema = PaginationQuerySchema.extend({ tenant_id: IdSchema.optional() });
 export const ManagedMenusResponseSchema = z.strictObject({ data: z.array(ManagedMenuSchema), next_cursor: IdSchema.nullable() });
+export const CatalogStockResponseSchema = z.strictObject({
+  data:z.array(ManagedMenuSchema.pick({id:true,stock:true,is_available:true})),
+  next_cursor:IdSchema.nullable(),
+});
 export const ManagedTenantsResponseSchema = z.strictObject({ data: z.array(ManagedTenantSchema), next_cursor: IdSchema.nullable() });
 export const ManagedUserSchema = z.strictObject({ id: IdSchema, email: z.email(), name: NameSchema.nullable(), role: z.enum(['admin_pengelola', 'tenant', 'pelanggan']), tenant_id: IdSchema.nullable(), is_active: z.boolean(), created_at: TimestampSchema });
 export const ManagedUsersQuerySchema = z.strictObject({ page: z.string().regex(/^[1-9][0-9]{0,4}$/).transform(Number).default(1) });

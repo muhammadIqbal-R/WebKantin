@@ -44,3 +44,6 @@ Pada tiap halaman panel selain Ringkasan, tampilkan tombol kembali di atas
 konten pada desktop dan HP. Halaman utama modul kembali ke Ringkasan. Dari
 detail tenant, admin kembali ke daftar tenant dan akun tenant ke Menu & stok.
 Tujuan mengikuti struktur panel dan tetap jelas saat tautan dibuka langsung.
+
+Detail pesanan menampilkan nomor meja dan catatan untuk tenant di dekat jenis
+pesanan, sebelum daftar item. Bagian muncul saat ada keterangan.

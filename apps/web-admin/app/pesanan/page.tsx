@@ -1,7 +1,7 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
 import {AdminOrderListResponseSchema,OrderDetailResponseSchema,OrderResponseSchema,type Order} from '@kantin/shared';
-import {Badge,Button,Field,Modal,OrderChat,OrderRefundPanel,formatMoney} from '@kantin/ui';
+import {Badge,Button,Field,FulfillmentDetails,Modal,OrderChat,OrderRefundPanel,formatMoney} from '@kantin/ui';
 import {STATUS_LABELS,STATUS_TONES} from '@kantin/ui/demo';
 import {useLoad,useManagement} from '../../components/management';
 import {DataState} from '../../components/data-state';
@@ -67,6 +67,8 @@ function OrderDetail({ id, done, onRefundChanged }: { id: string; done: () => Pr
         <strong>{order.customer_name}</strong>
         <Badge tone={STATUS_TONES[order.status]}>{STATUS_LABELS[order.status]}</Badge>
       </div>
+      <p className="small">{order.order_type === 'dine_in' ? 'Makan di tempat' : 'Bawa pulang'}</p>
+      <FulfillmentDetails details={state.data?.fulfillment} />
       {state.data?.items.map(item => <div className="row between" key={item.id}>
         <span>{item.qty} × {item.menu_name}</span><span>{formatMoney(item.subtotal)}</span>
       </div>)}

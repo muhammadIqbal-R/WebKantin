@@ -31,12 +31,22 @@ const cart = {
   customer_name: '  Rani  ', order_type: 'take_away', items: [{ menu_id: menuA, qty: 2 }],
 };
 
-test('checkout normalizes names and accepts identifiers/quantities only', () => {
+test('checkout normalizes names and rejects client-owned prices and authority', () => {
   assert.equal(CreateOrdersRequestSchema.parse(cart).customer_name, 'Rani');
   for (const spoof of [{ total: 1 }, { status: 'selesai' }, { tenant_id: tenantB }, { payment_method: 'cash' }]) {
     assert.equal(CreateOrdersRequestSchema.safeParse({ ...cart, ...spoof }).success, false);
   }
   assert.equal(CreateOrdersRequestSchema.safeParse({ ...cart, items: [{ menu_id: menuA, qty: 2, unit_price: 1 }] }).success, false);
+});
+
+test('checkout accepts collection notes and a short table number only for dine-in', () => {
+  const details = { table_number:' A-12 ', pickup_note:'  Meja dekat pintu  ' };
+  const parsed = CreateOrdersRequestSchema.parse({...cart,...details,order_type:'dine_in'});
+  assert.deepEqual([parsed.table_number,parsed.pickup_note],['A-12','Meja dekat pintu']);
+  assert.equal(CreateOrdersRequestSchema.safeParse({...cart,...details}).success,false);
+  assert.equal(CreateOrdersRequestSchema.safeParse({...cart,pickup_note:'Ambil di kasir'}).success,true);
+  assert.equal(CreateOrdersRequestSchema.safeParse({...cart,pickup_note:'x'.repeat(201)}).success,false);
+  assert.equal(CreateOrdersRequestSchema.safeParse({...cart,order_type:'dine_in',table_number:'A<12'}).success,false);
 });
 
 test('checkout rejects blank names, duplicate lines, empty/oversized carts and malformed IDs', () => {

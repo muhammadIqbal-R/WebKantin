@@ -10,6 +10,7 @@ export const customerOrderDetail = {
   items: true,
   paymentWindow: true,
   refund: true,
+  fulfillment: true,
   events: {
     where: { action: 'payment_rejected' },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -22,6 +23,7 @@ export function detailDto(row: Prisma.OrderGetPayload<{include:{items:true}}> & 
   paymentSnapshots?: {merchantName:string}[];
   paymentWindow?: {deadlineAt:Date;expiredAt:Date|null}|null;
   refund?: OrderRefund|null;
+  fulfillment?: {tableNumber:string|null;pickupNote:string|null}|null;
 }, actor?: string) {
   const reason = row.paymentStatus === 'rejected' ? row.events?.[0]?.reason : null;
   const merchant = row.paymentSnapshots?.[0]?.merchantName;
@@ -39,6 +41,7 @@ export function detailDto(row: Prisma.OrderGetPayload<{include:{items:true}}> & 
     }) : null,
     refund: row.refund ? refundDto(row.refund,actor) : null,
     refund_available: Boolean(row.customerId && (row.paymentStatus==='paid' || row.paymentWindow?.expiredAt)),
+    ...(row.fulfillment ? {fulfillment:{table_number:row.fulfillment.tableNumber,pickup_note:row.fulfillment.pickupNote}} : {}),
   });
 }
 export async function checkout(db:Pick<Database,'checkout'>,cipher:ReplayCipher,sub:string,key:string,input:CreateOrdersRequest,requestId:string){
@@ -56,6 +59,11 @@ export async function checkout(db:Pick<Database,'checkout'>,cipher:ReplayCipher,
       for(const [tenantId,lines] of [...groups.entries()].sort(([a],[b])=>a.localeCompare(b))){
         const total=lines.reduce((sum,line)=>sum+line.menu.price*line.qty,0);if(total>1_000_000_000)throw new HttpError(400,'Total pesanan melebihi batas.');
         const row=await tx.order.create({data:{tenantId,customerId:sub,customerName:input.customer_name,orderType:input.order_type,total}});
+        if (input.table_number || input.pickup_note) {
+          await tx.orderFulfillmentDetail.create({data:{
+            orderId:row.id,tableNumber:input.table_number ?? null,pickupNote:input.pickup_note ?? null,
+          }});
+        }
         for(const {menu,qty} of lines)await tx.orderItem.create({data:{orderId:row.id,tenantId,menuId:menu.id,menuName:menu.name,qty,unitPrice:menu.price,subtotal:menu.price*qty}});
         const token=randomBytes(32).toString('base64url');await tx.orderAccessGrant.create({data:{orderId:row.id,tenantId,tokenDigest:createHash('sha256').update(token).digest('hex')}});
         const snapshot=await tx.orderPaymentSnapshot.findUniqueOrThrow({where:{orderId:row.id}});

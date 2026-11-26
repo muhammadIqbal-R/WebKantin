@@ -140,6 +140,7 @@ model Order {
   messages OrderMessage[]
   paymentWindow OrderPaymentWindow?
   refund OrderRefund?
+  fulfillment OrderFulfillmentDetail?
   chatReceipts OrderChatReceipt[]
   @@unique([id,tenantId])
   @@index([tenantId,createdAt,id],map:"orders_tenant_created_idx")
@@ -148,6 +149,14 @@ model Order {
   @@index([tenantId,paymentStatus,createdAt,id],map:"orders_tenant_payment_idx")
   @@map("orders")
   @@schema("public")
+}
+model OrderFulfillmentDetail {
+  orderId String @id @map("order_id") @db.Uuid
+  tableNumber String? @map("table_number") @db.VarChar(16)
+  pickupNote String? @map("pickup_note") @db.VarChar(200)
+  order Order @relation(fields:[orderId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  @@map("order_fulfillment_details")
+  @@schema("app_private")
 }
 model OrderPaymentWindow {
   orderId String @id @map("order_id") @db.Uuid

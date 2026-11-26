@@ -2,7 +2,7 @@
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { NameSchema } from '@kantin/shared';
+import { NameSchema, PICKUP_NOTE_MAX, TABLE_NUMBER_MAX, TableNumberSchema } from '@kantin/shared';
 import { ArrowRight, Badge, Button, ChevronLeft, EmptyState, Field, FoodPhoto, QrCode, ShoppingBag, UtensilsCrossed, formatMoney } from '@kantin/ui';
 import { useDemo } from '@kantin/ui/demo';
 import { useCustomerAuth } from '../../components/customer-auth';
@@ -16,6 +16,8 @@ export default function CheckoutPage() {
   const catalog = useCatalogStatus();
   const {create}=useCustomerOrders();
   const [name, setName] = useState('');
+  const [table, setTable] = useState('');
+  const [pickupNote, setPickupNote] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const lines = menus.filter((menu) => (cart[menu.id] ?? 0) > 0);
@@ -30,8 +32,23 @@ export default function CheckoutPage() {
     if (busy || missing.length || invalid || !lines.length) return;
     const parsed = NameSchema.safeParse(name);
     if (!parsed.success) { setError('Isi nama pemesan, minimal 2 dan maksimal 100 karakter.'); return; }
+    const tableNumber = orderType === 'dine_in' ? table.trim() : '';
+    if (tableNumber && !TableNumberSchema.safeParse(tableNumber).success) {
+      setError('Nomor meja hanya boleh berisi huruf, angka, dan tanda hubung. Contoh A-12.');
+      return;
+    }
+    const note = pickupNote.trim();
     setBusy(true);
-    try { await create({customer_name:parsed.data,order_type:orderType,items:Object.entries(cart).map(([menu_id,qty])=>({menu_id,qty}))});clearCart();router.push('/pesanan'); }
+    try {
+      await create({
+        customer_name:parsed.data, order_type:orderType,
+        ...(tableNumber ? {table_number:tableNumber} : {}),
+        ...(note ? {pickup_note:note} : {}),
+        items:Object.entries(cart).map(([menu_id,qty])=>({menu_id,qty})),
+      });
+      clearCart();
+      router.push('/pesanan');
+    }
     catch (failure) { setError(failure instanceof Error ? failure.message : 'Pesanan belum dapat dibuat.'); setBusy(false); }
   }
   if (authLoading) return <p role="status">Memeriksa sesi pelanggan…</p>;
@@ -46,7 +63,19 @@ export default function CheckoutPage() {
         <div className="form-grid" style={{ marginTop: 'var(--s5)' }}>
           <label className="order-type-choice"><input type="radio" name="order-type" checked={orderType === 'dine_in'} onChange={() => setOrderType('dine_in')} /><UtensilsCrossed /><span>Makan di tempat<small>Nikmati di area kantin</small></span></label>
           <label className="order-type-choice"><input type="radio" name="order-type" checked={orderType === 'take_away'} onChange={() => setOrderType('take_away')} /><ShoppingBag /><span>Bawa pulang<small>Dikemas untuk dibawa</small></span></label>
-        </div></section>
+        </div>
+        <div className="stack checkout-fulfillment">
+          {orderType === 'dine_in' && <Field label="Nomor meja (opsional)">
+            <input className="input" value={table} maxLength={TABLE_NUMBER_MAX} placeholder="Contoh A-12"
+              disabled={busy} onChange={event => { setTable(event.target.value); setError(''); }} />
+          </Field>}
+          <Field label="Catatan untuk tenant (opsional)">
+            <textarea className="textarea" rows={2} value={pickupNote} maxLength={PICKUP_NOTE_MAX}
+              placeholder={orderType === 'dine_in' ? 'Contoh: meja dekat pintu' : 'Contoh: ambil di kasir'}
+              disabled={busy} onChange={event => { setPickupNote(event.target.value); setError(''); }} />
+          </Field>
+        </div>
+        </section>
         <section className="panel"><div className="panel-header"><h2 className="row"><span className="step-badge">2</span>Menu pilihanmu</h2><span className="small muted">{lines.length} menu</span></div>
           {missing.length > 0 && <div className="notice stack">
             <p>{missing.length} menu di keranjang sudah tidak ada di katalog.</p>

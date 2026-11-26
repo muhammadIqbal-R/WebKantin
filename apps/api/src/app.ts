@@ -15,6 +15,7 @@ import {
   CreateOutletRequestSchema, UpdateOutletRequestSchema, OutletSchema, FloorMapResponseSchema,
   OrderMessagesQuerySchema, SendOrderMessageSchema,
   MarkChatReadSchema, RequestRefundSchema, UpdateRefundSchema,
+  CatalogStockResponseSchema,
 } from '@kantin/shared';
 import { Database, userDto, type Tx } from './database.js';
 import { Accounts } from './accounts.js';
@@ -71,6 +72,17 @@ export function createApp(deps: Dependencies): Express {
     const {tenant_id}=TenantParamsSchema.parse(req.params),q=PaginationQuerySchema.parse(req.query);
     const rows=await deps.db.catalog(res.locals.requestId as string,tx=>tx.menu.findMany({where:{tenantId:tenant_id,isActive:true,tenant:{isActive:true,archivedAt:null,outlet:{isActive:true}},...(q.cursor?{id:{gt:q.cursor}}:{})},orderBy:{id:'asc'},take:q.limit+1}));
     res.json(ManagedMenusResponseSchema.parse(pageResult(rows.map(menuDto),q.limit)));
+  });
+  app.get('/api/catalog/stock',async(req,res)=>{
+    const query=PaginationQuerySchema.parse(req.query);
+    const rows=await deps.db.catalog(res.locals.requestId as string,tx=>tx.menu.findMany({
+      where:{isActive:true,tenant:{isActive:true,archivedAt:null,outlet:{isActive:true}},...(query.cursor?{id:{gt:query.cursor}}:{})},
+      select:{id:true,stock:true,isAvailable:true},
+      orderBy:{id:'asc'},take:query.limit+1,
+    }));
+    res.json(CatalogStockResponseSchema.parse(pageResult(rows.map(row=>({
+      id:row.id,stock:row.stock,is_available:row.isAvailable && row.stock>0,
+    })),query.limit)));
   });
   function media(){if(!deps.media)throw new HttpError(503,'Penyimpanan gambar belum tersedia.');return deps.media;}
   async function readFloorMap(row: {id:string;floorMapUrl:string|null}) {
@@ -225,7 +237,7 @@ export function createApp(deps: Dependencies): Express {
   async function staffOrder(tx:Tx,actor:User,id:string){
     const row=await tx.order.findFirst({
       where:{id,...(actor.role==='tenant'?{tenantId:actor.tenant_id??''}:{})},
-      include:{items:true,paymentWindow:true,refund:true,paymentSnapshots:{select:{merchantName:true},take:1}},
+      include:{items:true,paymentWindow:true,refund:true,fulfillment:true,paymentSnapshots:{select:{merchantName:true},take:1}},
     });
     if(!row)throw new HttpError(404,'Pesanan tidak ditemukan.');
     return row;

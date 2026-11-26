@@ -5,6 +5,8 @@
 1. Jalankan [order-operations-upgrade.sql](../infra/supabase/order-operations-upgrade.sql)
    satu kali setelah [chat-upgrade.sql](../infra/supabase/chat-upgrade.sql). Script
    menambah tabel privat tanpa mengubah deadline pesanan yang sudah ada.
+   Lanjutkan dengan [order-fulfillment-upgrade.sql](../infra/supabase/order-fulfillment-upgrade.sql)
+   untuk nomor meja dan catatan pesanan. Jalankan sebelum deploy API terbaru.
 2. Buka **Authentication → URL Configuration**. Tambahkan URL
    `https://web-kantin-swart.vercel.app/lupa-password` dan URL
    `/lupa-password` pada domain web admin ke **Redirect URLs**.

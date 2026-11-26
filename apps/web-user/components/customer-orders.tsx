@@ -33,8 +33,12 @@ function OwnedProvider({children,subject}:{children:ReactNode;subject:string|nul
  }
  async function paid(order:Order){
   const response=await api('/api/orders/'+order.id+'/paid',OrderResponseSchema,'PATCH',{expected_version:order.version});
-  setOrders(old=>old.map(item=>item.data.id===order.id&&response.data.version>item.data.version
-    ? {data:response.data,items:item.items,...(item.chat_available===undefined?{}:{chat_available:item.chat_available})} : item));
+  setOrders(old=>old.map(item=>{
+   if (item.data.id!==order.id || response.data.version<=item.data.version) return item;
+   const updated={...item,data:response.data};
+   delete updated.payment_rejection_reason;
+   return updated;
+  }));
   await reload();
  }
  const payment=useCallback(async(id:string)=>api('/api/orders/'+id+'/payment',PaymentInstructionsResponseSchema),[api]);

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { STATUS_LABELS, STATUS_TONES } from '@kantin/ui/demo';
-import { Badge, Button, Modal, OrderChat, OrderRefundPanel, formatMoney } from '@kantin/ui';
+import { Badge, Button, FulfillmentDetails, Modal, OrderChat, OrderRefundPanel, formatMoney } from '@kantin/ui';
 import type { Order, OrderDetailResponseSchema } from '@kantin/shared';
 import { useCustomerOrders } from '../../components/customer-orders';
 import { useCustomerAuth } from '../../components/customer-auth';
@@ -40,7 +40,7 @@ export default function OrdersPage() {
     {state.error && <p role="alert" className="form-error">{state.error}</p>}
     {actionError && <p role="alert" className="form-error">{actionError}</p>}
     <div className="order-cards">
-      {state.orders.map(({ data: order, items, payment_rejection_reason, chat_available, payment_window, refund, refund_available }) => <article className="panel order-card stack" key={order.id}>
+      {state.orders.map(({ data: order, items, payment_rejection_reason, chat_available, payment_window, refund, refund_available, fulfillment }) => <article className="panel order-card stack" key={order.id}>
         <div className="panel-header">
           <strong className="order-code">{order.order_code}</strong>
           {refund?.status==='dikembalikan' ? <Badge tone="success">Dana dikembalikan</Badge>
@@ -48,6 +48,7 @@ export default function OrdersPage() {
             : <Badge tone={STATUS_TONES[order.status]}>{STATUS_LABELS[order.status]}</Badge>}
         </div>
         <p>{order.order_type === 'dine_in' ? 'Makan di tempat' : 'Bawa pulang'} · {order.customer_name}</p>
+        <FulfillmentDetails details={fulfillment} />
         <div className="order-item-list">{items.map(item => <div className="row between" key={item.id}>
           <span>{item.qty} × {item.menu_name}</span><span>{formatMoney(item.subtotal)}</span>
         </div>)}</div>

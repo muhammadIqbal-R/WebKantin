@@ -1,7 +1,7 @@
 # F-02 · Keranjang dan Checkout
 **Status:** draft
 **Pemilik:** Lead Full-Stack Engineer
-**Terakhir diperbarui:** 2026-11-12
+**Terakhir diperbarui:** 2026-11-25
 **Terkait:** F-01, F-03, F-04, SEC-01
 
 **Revisi terbaru:** akun pelanggan minimal wajib untuk checkout; [rincian](../customer-accounts.md)
@@ -11,6 +11,13 @@ Audit 23 November: keranjang menyimpan ID menu, jumlah, dan cara pesan pada tab
 yang sama agar bertahan saat login atau reload. Logout mengosongkan keranjang.
 Checkout menampilkan item hilang atau stok berubah dan memberi aksi koreksi
 sebelum mencoba ulang. Harga dan stok final tetap divalidasi API.
+
+Revisi 25 November: checkout menerima `table_number` (opsional, 1–16 huruf,
+angka, atau tanda hubung, hanya makan di tempat) dan `pickup_note` (opsional,
+1–200 karakter). Keterangan ini disalin ke setiap order tenant dalam checkout
+dan tampil di detail pelanggan, tenant terkait, dan admin. Pesanan lama
+tetap dapat dibuka. Isi keterangan ikut menentukan replay idempotensi dan
+disimpan di tabel privat dalam transaksi yang sama dengan order.
 
 Istilah mengikuti [MASTER](../MASTER.md); detail ini merupakan kontrak rencana, belum endpoint aktif.
 

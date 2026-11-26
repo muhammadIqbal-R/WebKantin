@@ -208,3 +208,39 @@ test('order fulfillment stays private and only dine-in may set a table',async()=
  await assert.rejects(()=>transact(db,'authenticated',rt(customerA),sql=>sql.query('SELECT pickup_note FROM app_private.order_fulfillment_details')),{code:'42501'});
  await assert.rejects(()=>transact(db,'api',staff(staffB),sql=>sql.query('UPDATE app_private.order_fulfillment_details SET pickup_note=$1 WHERE order_id=$2',['Diubah',dineIn.id])),{code:'42501'});
 });
+
+test('payment proof is mandatory per claim and only the order tenant can operate on it',async()=>{
+ await db.exec(await readSql(new URL('../../../infra/supabase/tenant-payment-proofs-upgrade.sql',import.meta.url)));
+ const [order]=await create(customerA,[{tenant:B,menu:MB,qty:1}]);
+ const objectPath=order.id+'/'+randomUUID()+'.webp';
+ const move=(scope,version,status)=>transact(db,'api',{...scope,'kantin.expected_version':version},sql=>sql.query(
+  'UPDATE public.orders SET status=$2 WHERE id=$1 RETURNING status',[order.id,status],
+ ));
+ const proof=sql=>sql.query(
+  'INSERT INTO app_private.order_payment_proofs(order_id,claim_version,object_path) VALUES($1,$2,$3)',
+  [order.id,2,objectPath],
+ );
+ await assert.rejects(()=>move(customer(customerA),1,'menunggu_konfirmasi'),{code:'23514'});
+ await assert.rejects(()=>transact(db,'api',customer(customerB),proof),{code:'42501'});
+ await assert.rejects(()=>transact(db,'api',staff(staffB),proof),{code:'42501'});
+ await transact(db,'api',{...customer(customerA),'kantin.expected_version':1},async sql=>{
+  await proof(sql);
+  await sql.query("UPDATE public.orders SET status='menunggu_konfirmasi' WHERE id=$1",[order.id]);
+ });
+ const paths=scope=>transact(db,'api',scope,async sql=>(await sql.query(
+  'SELECT object_path FROM app_private.order_payment_proofs WHERE order_id=$1',[order.id],
+ )).rows);
+ assert.deepEqual(await paths(staff(staffB)),[{object_path:objectPath}]);
+ for(const scope of [staff(admin),staff(staffA),customer(customerB)])assert.deepEqual(await paths(scope),[]);
+ await assert.rejects(()=>move(staff(admin),2,'diproses'),{code:'42501'});
+ assert.deepEqual((await move(staff(staffA),2,'diproses')).rows,[]);
+ assert.deepEqual((await move(staff(staffB),2,'diproses')).rows,[{status:'diproses'}]);
+ await assert.rejects(()=>move(staff(admin),3,'siap'),{code:'42501'});
+ assert.deepEqual((await move(staff(staffB),3,'siap')).rows,[{status:'siap'}]);
+ assert.deepEqual((await move(staff(staffB),4,'selesai')).rows,[{status:'selesai'}]);
+ await db.query('INSERT INTO storage.objects(bucket_id,name) VALUES($1,$2)',['payment-proofs',objectPath]);
+ await transact(db,'authenticated',rt(customerA),async sql=>{
+  assert.deepEqual((await sql.query("SELECT name FROM storage.objects WHERE bucket_id='payment-proofs'")).rows,[]);
+  assert.deepEqual((await sql.query("SELECT id FROM storage.buckets WHERE id='payment-proofs'")).rows,[]);
+ });
+});

@@ -133,7 +133,7 @@ Nomor baris berikut merujuk commit saat audit dan dapat berubah pada revisi beri
 
 - [DemoProvider](../../packages/ui/src/demo.tsx): baris 20–27 inisialisasi state/role,
   38–66 checkout demo, 68–93 pembayaran/status, 95–108 menu/tenant lokal.
-- [Shell pengelola](../../apps/web-admin/components/admin-shell.tsx): baris 16 dan
+- [Shell pengelola saat audit](https://github.com/muhammadIqbal-R/WebKantin/blob/cbbe116/apps/web-admin/components/admin-shell.tsx): baris 16 dan
   28–30 provider dan render panel tanpa pemeriksaan sesi staf.
 - [Login staf](../../apps/web-admin/app/login/page.tsx): baris 6–9 submit hanya
   menampilkan error layanan belum tersedia.

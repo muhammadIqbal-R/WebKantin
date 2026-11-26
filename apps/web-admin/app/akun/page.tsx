@@ -2,8 +2,8 @@
 import { useCallback, useState } from 'react';
 import { ManagedUsersResponseSchema, UserStatusResponseSchema, type ManagedUser } from '@kantin/shared';
 import { Badge, Button, Modal } from '@kantin/ui';
-import { useLoad, useManagement } from '../../components/management';
-import { DataState } from '../../components/data-state';
+import { useLoad, useManagement } from '@kantin/staff/management';
+import { DataState } from '@kantin/staff/data-state';
 import {LinkTenantAccount} from '../../components/link-tenant-account';
 export default function AccountPage(){
   const {actor}=useManagement();

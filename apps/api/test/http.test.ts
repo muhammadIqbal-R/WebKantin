@@ -32,6 +32,64 @@ test('tenant cannot list/manage users or create/archive tenants, with no Auth si
   assert.equal((await call('/api/admin/tenant-accounts','tenant',{tenant_id:tenantId,email:'qa@example.test'},'POST')).status,403);
   assert.equal(calls.invite,0);assert.equal(calls.ban,0);
 });
+test('admin can create a scoped tenant login with an initial password',async()=>{
+  const accountId=randomUUID();
+  const email='new-tenant@example.test';
+  const password='Kantin tenant test 26';
+  const now=new Date();
+  const expected={id:accountId,email,role:'tenant',tenantId,isActive:true};
+  let profile:typeof expected&{createdAt:Date;updatedAt:Date}|null=null;
+  let created=0;
+  const app=createApp({
+    db:{
+      ...db,
+      async staff(sub,_requestId,work){
+        return work({
+          tenant:{findUnique:async()=>({id:tenantId,archivedAt:null})},
+          user:{
+            findUnique:async()=>profile,
+            create:async({data}:{data:typeof expected})=>{
+              assert.deepEqual(data,expected);
+              profile={...data,createdAt:now,updatedAt:now};
+              return profile;
+            },
+          },
+        } as unknown as Tx,actor(sub));
+      },
+    },
+    verify:async token=>token==='admin'?adminId:tenantId,
+    accounts:{
+      list:async()=>[],setActive:async()=>{},
+      invite:async()=>{throw new Error('Expected password provisioning');},
+      createWithPassword:async (providedEmail,providedPassword)=>{
+        assert.equal(providedEmail,email);
+        assert.equal(providedPassword,password);
+        created++;
+        return {id:accountId,email,aud:'authenticated',app_metadata:{},user_metadata:{},created_at:now.toISOString()};
+      },
+    },
+    origins:[],
+  }).listen(0,'127.0.0.1');
+  await new Promise<void>(resolve=>app.once('listening',resolve));
+  try {
+    const address=app.address();
+    assert.ok(address&&typeof address!=='string');
+    const register=(token:string,secret:string)=>fetch('http://127.0.0.1:'+address.port+'/api/admin/tenant-accounts',{
+      method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({tenant_id:tenantId,email,password:secret}),
+    });
+    assert.equal((await register('tenant',password)).status,403);
+    assert.equal((await register('admin','short')).status,400);
+    const registered=await register('admin',password);
+    assert.equal(registered.status,201);
+    const result=await registered.json();
+    assert.equal(result.data.role,'tenant');
+    assert.equal(result.data.tenant_id,tenantId);
+    assert.equal('password'in result.data,false);
+    assert.equal((await register('admin',password)).status,409);
+    assert.equal(created,1);
+  } finally {await new Promise<void>((resolve,reject)=>app.close(error=>error?reject(error):resolve()));}
+});
 test('HTTP schemas reject stock fractions, negative values, missing version and spoofed authority',async()=>{
   for(const body of [{stock:-1,expected_version:1},{stock:1.5,expected_version:1},{stock:4},{stock:4,expected_version:1,tenant_id:tenantId}])assert.equal((await call('/api/admin/menus/'+tenantId+'/stock','tenant',body,'PATCH')).status,400);
   assert.equal(calls.writes,0);
@@ -94,12 +152,20 @@ test('order details project the rejection reason to its owner and the merchant t
     items:[{id:randomUUID(),orderId:id,tenantId,menuId,menuName:'Menu uji',qty:1,unitPrice:17000,subtotal:17000}],
   };
   let claims=0;
+  let uploaded=0;
+  let proofPath:string|null=null;
+  const png=Uint8Array.from(await sharp({create:{width:12,height:12,channels:3,background:'#ffffff'}}).png().toBuffer());
   const testApp=createApp({
     db:{
       ...db,
       async customer(sub,_request,work){
         return work({
           $queryRaw:async()=>[],
+          orderPaymentProof:{create:async({data}:{data:{orderId:string;claimVersion:number;objectPath:string}})=>{
+            assert.equal(data.orderId,id);
+            assert.equal(data.claimVersion,4);
+            proofPath=data.objectPath;
+          }},
           order:{
             findUnique:async({include}:{include?:object})=>sub===customer
               ? {...order,...(include?{events:[{reason:'Mutasi belum ditemukan'}]}:{})}
@@ -110,11 +176,20 @@ test('order details project the rejection reason to its owner and the merchant t
       },
       async staff(sub,_request,work){
         return work({
-          order:{findFirst:async()=>({...order,paymentSnapshots:[{merchantName:'Merchant uji'}]})},
-        } as unknown as Tx,actor(sub));
+          order:{findFirst:async({where}:{where:{tenantId?:string}})=>
+            where.tenantId&&where.tenantId!==tenantId?null:{...order,paymentSnapshots:[{merchantName:'Merchant uji'}]}},
+          orderPaymentProof:{findFirst:async()=>proofPath?{objectPath:proofPath}:null},
+        } as unknown as Tx,sub===other?{...actor(sub),tenant_id:other}:actor(sub));
       },
     },
-    verify:async token=>token==='customer'?customer:token==='staff'?tenantId:other,
+    media:{
+      upload:async()=>{throw new Error('Unexpected catalog upload');},
+      assertAsset:async()=>{},
+      preview:async()=>null,
+      uploadPaymentProof:async(_bytes,orderId)=>{uploaded++;return orderId+'/'+randomUUID()+'.webp';},
+      previewPaymentProof:async()=> 'https://qa.supabase.co/storage/v1/object/sign/payment-proofs/example',
+    },
+    verify:async token=>token==='customer'?customer:token==='staff'?tenantId:token==='admin'?adminId:other,
     accounts:{list:async()=>[],invite:async()=>{throw new Error('Unexpected invite');},setActive:async()=>{}},
     origins:[],
   }).listen(0,'127.0.0.1');
@@ -136,12 +211,25 @@ test('order details project the rejection reason to its owner and the merchant t
     const staff=await request('/api/admin/orders/'+id,'staff');
     assert.equal(staff.status,200);
     assert.equal((await staff.json()).payment_merchant_name,'Merchant uji');
+    const staffPath='/api/admin/orders/'+id;
+    const claimPath=path+'/paid?expected_version=3';
+    assert.equal((await request(claimPath,'other',{})).status,404);
+    assert.equal((await request(claimPath,'customer',{})).status,400);
+    assert.deepEqual(await (await request(staffPath+'/payment-proof','staff')).json(),{image_url:null});
     for(let retry=0;retry<2;retry++){
-      const claim=await request(path+'/paid','customer',{expected_version:3});
+      const body=new FormData();
+      body.append('file',new Blob([png],{type:'image/png'}),'bukti.png');
+      const claim=await fetch(testBase+claimPath,{method:'PATCH',headers:{Authorization:'Bearer customer'},body});
       assert.equal(claim.status,200);
       assert.equal((await claim.json()).data.status,'menunggu_konfirmasi');
     }
     assert.equal(claims,1);
+    assert.equal(uploaded,1);
+    assert.match((await (await request(staffPath+'/payment-proof','staff')).json()).image_url,/\/sign\/payment-proofs\//);
+    assert.equal((await request(staffPath+'/payment-proof','admin')).status,403);
+    assert.equal((await request(staffPath+'/payment-proof','other')).status,404);
+    assert.equal((await request(staffPath+'/confirm-payment','admin',{decision:'accept',expected_version:4})).status,403);
+    assert.equal((await request(staffPath+'/status','admin',{status:'dibatalkan',expected_version:4})).status,403);
   }finally{await new Promise<void>((resolve,reject)=>testApp.close(error=>error?reject(error):resolve()));}
 });
 

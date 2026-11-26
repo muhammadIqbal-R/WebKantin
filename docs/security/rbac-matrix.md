@@ -10,8 +10,9 @@ Revisi pengelolaan 2026-11-20: [kontrak operasional](../staff-management.md). Ad
 | Checkout publik | Ya, tanpa token | Menggunakan alur publik, bukan identitas admin | Menggunakan alur publik, bukan identitas admin |
 | Detail/report paid/tracker | Order milik token | Tidak memakai endpoint pemesan | Tidak memakai endpoint pemesan |
 | Daftar/detail order admin | Tidak | Tenant sendiri | Semua tenant |
-| Terima/tolak pembayaran | Tidak | Tenant sendiri | Semua tenant |
-| Status siap/selesai/batal sebelum paid | Tidak | Tenant sendiri | Semua tenant |
+| Unggah bukti QRIS | Akun pemilik order | Tidak | Tidak |
+| Lihat bukti QRIS dan terima/tolak pembayaran | Tidak | Tenant sendiri | Tidak |
+| Status siap/selesai/batal sebelum paid | Tidak | Tenant sendiri | Tidak |
 | Baca/kirim chat pesanan | Akun pemilik order saja | Tenant order saja | Tidak |
 | Ajukan refund | Akun pemilik order | Tidak | Tidak |
 | Tinjau refund dan catat hasil | Lihat status sendiri | Tenant order saja | Semua tenant, sesuai petugas penanganan |

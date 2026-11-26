@@ -21,9 +21,10 @@ export class Database {
     const migration=await this.client.$queryRaw<{ready:boolean}[]>`
       SELECT to_regprocedure('app_private.auth_account_active(uuid)') IS NOT NULL
         AND to_regprocedure('app_private.expire_unpaid_orders()') IS NOT NULL
-        AND to_regclass('app_private.order_fulfillment_details') IS NOT NULL AS ready
+        AND to_regclass('app_private.order_fulfillment_details') IS NOT NULL
+        AND to_regclass('app_private.order_payment_proofs') IS NOT NULL AS ready
     `;
-    if(!migration[0]?.ready)throw new Error('Apply the order fulfillment SQL upgrade before starting this API');
+    if(!migration[0]?.ready)throw new Error('Apply tenant-payment-proofs-upgrade.sql and its prerequisites before starting this API');
   }
   async staff<T>(sub: string, requestId: string, work: (tx: Tx, actor: User) => Promise<T>): Promise<T> {
     return this.client.$transaction(async tx => {

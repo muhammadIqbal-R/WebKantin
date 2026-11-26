@@ -25,7 +25,8 @@ Refresh session dipulihkan Supabase SDK; logout membersihkan state order/keranja
 Email/password invalid menghasilkan pesan generik. Password tidak dicetak/disimpan
 pada data aplikasi. Nama metadata hanya display, bukan otoritas role.
 
-Staf: undangan/provisioning → Supabase Auth → JWT → API verifikasi → profil users
+Staf: admin membuat akun tenant dan menetapkan password awal → tenant masuk di
+portal tenant → Supabase Auth → JWT → API verifikasi → profil users
 aktif → RBAC/tenant. Invalid/expired token ditolak; staf nonaktif tidak mendapat
 akses walaupun sesi Auth belum habis. Tidak ada self-signup role pengelola.
 

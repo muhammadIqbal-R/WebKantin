@@ -9,7 +9,7 @@ import {
   NameSchema, OutletListResponseSchema, PaginationQuerySchema, StockUpdateSchema, UserStatusSchema, type User,
   UploadQuerySchema, UploadResponseSchema, TenantListQuerySchema, TenantParamsSchema, TenantListResponseSchema,
   VendorImportRequestSchema,VendorImportResponseSchema,VENDOR_CATALOG,ExistingTenantAccountSchema,
-  CreateOrdersRequestSchema,CheckoutHeadersSchema,OwnedOrdersResponseSchema,OrderResponseSchema,ReportPaidRequestSchema,
+  CreateOrdersRequestSchema,CheckoutHeadersSchema,OwnedOrdersResponseSchema,OrderResponseSchema,ReportPaidQuerySchema,PaymentProofResponseSchema,
   PaymentInstructionsResponseSchema,AdminOrderQuerySchema,AdminOrderListResponseSchema,ConfirmPaymentRequestSchema,UpdateOrderStatusRequestSchema,
   OrderFeedQuerySchema,OrderFeedCursorSchema,OrderNotificationFeedSchema,OrderSchema,
   CreateOutletRequestSchema, UpdateOutletRequestSchema, OutletSchema, FloorMapResponseSchema,
@@ -19,8 +19,8 @@ import {
 } from '@kantin/shared';
 import { Database, userDto, type Tx } from './database.js';
 import { Accounts } from './accounts.js';
-import { adminOnly, HttpError, databaseCode } from './errors.js';
-import { Media, readImage, normalizeImage, type MediaPurpose } from './media.js';
+import { adminOnly, tenantOnly, HttpError, databaseCode } from './errors.js';
+import { Media, readImage, normalizeImage } from './media.js';
 import {ReplayCipher} from './replay.js';
 import {checkout,orderDto,detailDto,customerOrderDetail} from './order-service.js';
 import {listOrderMessages,sendOrderMessage} from './order-chat.js';
@@ -29,7 +29,15 @@ import {Prisma} from './generated/prisma/client.js';
 
 type ApiRequest = Request<Record<string,string>, unknown, unknown>;
 type Work = <T>(fn:(tx:Tx,actor:User)=>Promise<T>)=>Promise<T>;
-type Dependencies = { db:Pick<Database,'staff'|'catalog'>&Partial<Pick<Database,'customer'|'checkout'>>; cipher?:ReplayCipher; media?:Pick<Media,'upload'|'assertAsset'|'preview'>; accounts:Pick<Accounts,'list'|'invite'|'setActive'>&Partial<Pick<Accounts,'get'>>; verify:(token:string)=>Promise<string>; origins:string[];rateLimitPerMinute?:number };
+type Dependencies = {
+  db:Pick<Database,'staff'|'catalog'>&Partial<Pick<Database,'customer'|'checkout'>>;
+  cipher?:ReplayCipher;
+  media?:Pick<Media,'upload'|'assertAsset'|'preview'>&Partial<Pick<Media,'uploadPaymentProof'|'previewPaymentProof'|'discardPaymentProof'>>;
+  accounts:Pick<Accounts,'list'|'invite'|'setActive'>&Partial<Pick<Accounts,'get'|'createWithPassword'|'removeNewAccount'>>;
+  verify:(token:string)=>Promise<string>;
+  origins:string[];
+  rateLimitPerMinute?:number;
+};
 const dates = (row:{createdAt:Date;updatedAt:Date}) => ({created_at:row.createdAt.toISOString(),updated_at:row.updatedAt.toISOString()});
 function outletDto(row:{id:string;name:string;location:string;floorMapUrl:string|null;isActive:boolean;createdAt:Date;updatedAt:Date}) {
   return OutletSchema.parse({
@@ -85,6 +93,7 @@ export function createApp(deps: Dependencies): Express {
     })),query.limit)));
   });
   function media(){if(!deps.media)throw new HttpError(503,'Penyimpanan gambar belum tersedia.');return deps.media;}
+  let uploads=0;
   async function readFloorMap(row: {id:string;floorMapUrl:string|null}) {
     if(!row.floorMapUrl)throw new HttpError(404,'Denah belum ditambahkan.');
     const image_url=await media().preview(row.floorMapUrl,row.id,'floor_map');
@@ -207,7 +216,44 @@ export function createApp(deps: Dependencies): Express {
   async function payment(work:<T>(fn:(tx:Tx)=>Promise<T>)=>Promise<T>,id:string){const snapshot=await work(async tx=>{const row=await tx.order.findUnique({where:{id}});if(!row)throw new HttpError(404,'Pesanan tidak ditemukan.');const payment=await tx.orderPaymentSnapshot.findUniqueOrThrow({where:{orderId:id}});return {row,payment};});const url=await media().preview(snapshot.payment.qrisImageUrl,snapshot.row.tenantId);if(!url)throw new HttpError(503,'Gambar QRIS belum dapat dimuat. Coba kembali.');return PaymentInstructionsResponseSchema.parse({order_id:id,total:snapshot.row.total,qris:{image_url:url,merchant_name:snapshot.payment.merchantName}});}
   app.get('/api/orders/:id/payment',async(req:ApiRequest,res)=>{const {work}=await owner(req,res),{id}=IdParamsSchema.parse(req.params);res.json(await payment(work,id));});
   app.get('/api/orders/:id',async(req:ApiRequest,res)=>{const {work}=await owner(req,res),{id}=IdParamsSchema.parse(req.params);const row=await work(tx=>tx.order.findUnique({where:{id},include:customerOrderDetail}));if(!row)throw new HttpError(404,'Pesanan tidak ditemukan.');res.json(detailDto(row));});
-  app.patch('/api/orders/:id/paid',async(req:ApiRequest,res)=>{const {work}=await owner(req,res),{id}=IdParamsSchema.parse(req.params),input=ReportPaidRequestSchema.parse(req.body);const row=await work(async tx=>{const current=await tx.order.findUnique({where:{id}});if(!current)throw new HttpError(404,'Pesanan tidak ditemukan.');if(current.status==='menunggu_konfirmasi')return current;if(current.version!==input.expected_version||current.status!=='menunggu_bayar')throw new HttpError(409,'Status pesanan sudah berubah. Muat ulang.');await tx.$queryRaw`SELECT set_config('kantin.expected_version',${String(input.expected_version)},true)`;return tx.order.update({where:{id},data:{status:'menunggu_konfirmasi'}});});res.json(OrderResponseSchema.parse({data:orderDto(row)}));});
+  app.patch('/api/orders/:id/paid',async(req:ApiRequest,res)=>{
+    const {work}=await owner(req,res);
+    const {id}=IdParamsSchema.parse(req.params);
+    const {expected_version:version}=ReportPaidQuerySchema.parse(req.query);
+    const proofVersion=version+1;
+    const check=async(tx:Tx)=>{
+      const order=await tx.order.findUnique({where:{id}});
+      if(!order)throw new HttpError(404,'Pesanan tidak ditemukan.');
+      if(order.status==='menunggu_konfirmasi'&&order.version===proofVersion)return {order,pending:true};
+      if(order.version!==version||order.status!=='menunggu_bayar')throw new HttpError(409,'Status pesanan sudah berubah. Muat ulang.');
+      return {order,pending:false};
+    };
+    const current=await work(check);
+    if(current.pending){res.json(OrderResponseSchema.parse({data:orderDto(current.order)}));return;}
+    const storage=media();
+    if(!storage.uploadPaymentProof)throw new HttpError(503,'Penyimpanan bukti pembayaran belum tersedia.');
+    if(uploads>=4)throw new HttpError(429,'Upload sedang penuh. Coba kembali sebentar lagi.');
+    uploads++;
+    try {
+      const input=await readImage(req);
+      const bytes=await normalizeImage(input.bytes,input.mime,'payment_proof');
+      const objectPath=await storage.uploadPaymentProof(bytes,id);
+      const discard=()=>storage.discardPaymentProof?.(objectPath).catch(()=>undefined);
+      const result=await work(async tx=>{
+        const refreshed=await check(tx);
+        if(refreshed.pending)return refreshed;
+        await tx.orderPaymentProof.create({data:{orderId:id,claimVersion:proofVersion,objectPath}});
+        await tx.$queryRaw`SELECT set_config('kantin.expected_version',${String(version)},true)`;
+        return {order:await tx.order.update({where:{id},data:{status:'menunggu_konfirmasi'}}),pending:false};
+      }).catch(async error=>{
+        // A database rejection rolls back the proof row. An ambiguous connection failure does not.
+        if(error instanceof HttpError||['P2002','P2004','P2025','P2034','23505','23514','40001','42501'].includes(databaseCode(error)))await discard();
+        throw error;
+      });
+      if(result.pending)await discard();
+      res.json(OrderResponseSchema.parse({data:orderDto(result.order)}));
+    } finally { uploads--; }
+  });
   route('get','/api/admin/orders',false,async(req,res,work)=>{
     const query=AdminOrderQuerySchema.parse(req.query);
     const rows=await work(async(tx,actor)=>{
@@ -247,7 +293,34 @@ export function createApp(deps: Dependencies): Express {
     res.json(await work(async(tx,actor)=>detailDto(await staffOrder(tx,actor,id),actor.id)));
   });
   route('get','/api/admin/orders/:id/payment',false,async(req,res,work)=>{const {id}=IdParamsSchema.parse(req.params);await work((tx,actor)=>staffOrder(tx,actor,id));res.json(await payment(fn=>work(tx=>fn(tx)),id));});
-  for(const action of ['confirm-payment','status'] as const)route('patch','/api/admin/orders/:id/'+action,false,async(req,res,work)=>{const {id}=IdParamsSchema.parse(req.params);const input=action==='confirm-payment'?ConfirmPaymentRequestSchema.parse(req.body):UpdateOrderStatusRequestSchema.parse(req.body);const row=await work(async(tx,actor)=>{const current=await staffOrder(tx,actor,id);if(current.version!==input.expected_version)throw new HttpError(409,'Pesanan sudah diperbarui. Muat ulang.');const reason='reason'in input?input.reason??'':'';const status='decision'in input?input.decision==='accept'?'diproses':'menunggu_bayar':input.status;await tx.$queryRaw`SELECT set_config('kantin.expected_version',${String(input.expected_version)},true),set_config('kantin.rejection_reason',${reason},true)`;return tx.order.update({where:{id},data:{status}});});res.json(OrderResponseSchema.parse({data:orderDto(row)}));});
+  route('get','/api/admin/orders/:id/payment-proof',false,async(req,res,work,actor)=>{
+    tenantOnly(actor.role);
+    const {id}=IdParamsSchema.parse(req.params);
+    const proof=await work(async(tx,current)=>{
+      tenantOnly(current.role);
+      await staffOrder(tx,current,id);
+      return tx.orderPaymentProof.findFirst({where:{orderId:id},orderBy:{claimVersion:'desc'}});
+    });
+    const storage=deps.media;
+    if(proof&&!storage?.previewPaymentProof)throw new HttpError(503,'Penyimpanan bukti pembayaran belum tersedia.');
+    const image_url=proof ? await storage?.previewPaymentProof?.(proof.objectPath) : null;
+    res.json(PaymentProofResponseSchema.parse({image_url}));
+  });
+  for(const action of ['confirm-payment','status'] as const)route('patch','/api/admin/orders/:id/'+action,false,async(req,res,work,actor)=>{
+    tenantOnly(actor.role);
+    const {id}=IdParamsSchema.parse(req.params);
+    const input=action==='confirm-payment'?ConfirmPaymentRequestSchema.parse(req.body):UpdateOrderStatusRequestSchema.parse(req.body);
+    const row=await work(async(tx,currentActor)=>{
+      tenantOnly(currentActor.role);
+      const current=await staffOrder(tx,currentActor,id);
+      if(current.version!==input.expected_version)throw new HttpError(409,'Pesanan sudah diperbarui. Muat ulang.');
+      const reason='reason'in input?input.reason??'':'';
+      const status='decision'in input?input.decision==='accept'?'diproses':'menunggu_bayar':input.status;
+      await tx.$queryRaw`SELECT set_config('kantin.expected_version',${String(input.expected_version)},true),set_config('kantin.rejection_reason',${reason},true)`;
+      return tx.order.update({where:{id},data:{status}});
+    });
+    res.json(OrderResponseSchema.parse({data:orderDto(row)}));
+  });
   route('get','/api/admin/order-notifications',false,async(req,res,work)=>{const q=OrderFeedQuerySchema.parse(req.query);let cursor:ReturnType<typeof OrderFeedCursorSchema.parse>|null=null;if(q.cursor){try{cursor=OrderFeedCursorSchema.parse(JSON.parse(Buffer.from(q.cursor,'base64url').toString('utf8')) as unknown);}catch{throw new HttpError(400,'Cursor notifikasi tidak valid.');}}const rows=await work((tx,actor)=>{const scope=actor.role==='tenant'?Prisma.sql`o.tenant_id=${actor.tenant_id}::uuid`:Prisma.sql`true`;return cursor?tx.$queryRaw<{data:unknown}[]>(Prisma.sql`SELECT to_jsonb(o)-'customer_id' AS data FROM public.orders o WHERE ${scope} AND (o.updated_at>${cursor.updated_at}::timestamptz OR(o.updated_at=${cursor.updated_at}::timestamptz AND o.id>${cursor.id}::uuid)) ORDER BY o.updated_at,o.id LIMIT 101`):tx.$queryRaw<{data:unknown}[]>(Prisma.sql`SELECT to_jsonb(o)-'customer_id' AS data FROM public.orders o WHERE ${scope} ORDER BY o.updated_at DESC,o.id DESC LIMIT 100`);});const data=(cursor?rows.slice(0,100):rows.reverse()).map(row=>OrderSchema.parse(row.data));const last=data.at(-1);const next=last?{updated_at:last.updated_at,id:last.id}:cursor??{updated_at:new Date(0).toISOString(),id:randomUUID()};res.json(OrderNotificationFeedSchema.parse({data,next_cursor:Buffer.from(JSON.stringify(next)).toString('base64url'),has_more:!!cursor&&rows.length>100}));});
   route('get','/api/admin/outlets',false,async(req,res,work)=>{
     const q=PaginationQuerySchema.parse(req.query);
@@ -309,10 +382,9 @@ export function createApp(deps: Dependencies): Express {
     const row=await work(async(tx,actor)=>{if(actor.role==='tenant'&&actor.tenant_id!==id)throw new HttpError(404,'Tenant tidak ditemukan.');const row=await tx.tenant.findUnique({where:{id}});if(!row)throw new HttpError(404,'Tenant tidak ditemukan.');return row;});
     res.json({data:await previewTenant(row)});
   });
-  let uploads=0;
   route('post','/api/admin/uploads',false,async(req,res,work,actor)=>{
     const q=UploadQuerySchema.parse(req.query);
-    const purpose:MediaPurpose=q.purpose;
+    const purpose=q.purpose;
     if(purpose!=='menu_photo')adminOnly(actor.role);
     const check=()=>work(async(tx,current)=>{
       if(purpose==='floor_map'){
@@ -407,14 +479,24 @@ export function createApp(deps: Dependencies): Express {
     const existing=await work(tx=>tx.user.findUnique({where:{email:input.email}}));
     if(existing) {
       if(existing.role!=='tenant'||existing.tenantId!==input.tenant_id)throw new HttpError(409,'Email sudah dipakai akun dengan akses lain.');
+      if(input.password)throw new HttpError(409,'Akun tenant sudah ada. Gunakan Lupa password untuk mengganti password.');
       res.json(MeResponseSchema.parse({data:userDto(existing)}));return;
     }
     await work(async tx=>{const tenant=await tx.tenant.findUnique({where:{id:input.tenant_id}});if(!tenant||tenant.archivedAt)throw new HttpError(404,'Tenant tidak tersedia.');});
-    const invited=await deps.accounts.invite(input.email);
+    if(input.password&&!deps.accounts.createWithPassword)throw new HttpError(503,'Pembuatan akun dengan password belum dikonfigurasi.');
+    const created=input.password && deps.accounts.createWithPassword
+      ? await deps.accounts.createWithPassword(input.email,input.password)
+      : await deps.accounts.invite(input.email);
     const profile=await work(async tx=>{
-      const tenant=await tx.tenant.findUnique({where:{id:input.tenant_id}});if(!tenant||tenant.archivedAt)throw new HttpError(409,'Tenant berubah. Akun belum diberi akses.');
-      return tx.user.create({data:{id:invited.id,email:input.email,role:'tenant',tenantId:input.tenant_id,isActive:true}});
-    });res.status(201).json(MeResponseSchema.parse({data:userDto(profile)}));
+      const tenant=await tx.tenant.findUnique({where:{id:input.tenant_id}});
+      if(!tenant||tenant.archivedAt)throw new HttpError(409,'Tenant berubah. Akun belum diberi akses.');
+      return tx.user.create({data:{id:created.id,email:input.email,role:'tenant',tenantId:input.tenant_id,isActive:true}});
+    }).catch(async error=>{
+      // The staff profile's Auth foreign key prevents removal if provisioning committed.
+      if(input.password)await deps.accounts.removeNewAccount?.(created.id).catch(()=>undefined);
+      throw error;
+    });
+    res.status(201).json(MeResponseSchema.parse({data:userDto(profile)}));
   });
   route('patch','/api/admin/users/:id',true,async(req,res,work,actor)=>{
     const {id}=IdParamsSchema.parse(req.params);const {is_active}=UserStatusSchema.parse(req.body);

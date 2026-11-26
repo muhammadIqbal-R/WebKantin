@@ -2,7 +2,7 @@
 import {useState} from 'react';
 import {VENDOR_CATALOG,VendorImportResponseSchema} from '@kantin/shared';
 import {Button,Field,Modal,formatMoney} from '@kantin/ui';
-import {useManagement} from './management';
+import {useManagement} from '@kantin/staff/management';
 export function VendorImport({outlets,done}:{outlets:{id:string;name:string;is_active:boolean}[];done:()=>Promise<void>}){
  const {request}=useManagement();const [open,setOpen]=useState(false),[outlet,setOutlet]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  async function submit(){setBusy(true);setError('');try{const result=await request('/api/admin/catalog-import',VendorImportResponseSchema,'POST',{catalog_id:'vendor-2026-11-21',outlet_id:outlet});setMessage(result.data.created_tenants+' tenant dan '+result.data.created_menus+' menu ditambahkan; '+result.data.skipped_menus+' menu existing dipertahankan.');setOpen(false);await done();}catch(failure:unknown){setError(failure instanceof Error?failure.message:'Katalog belum dapat ditambahkan.');}finally{setBusy(false);}}

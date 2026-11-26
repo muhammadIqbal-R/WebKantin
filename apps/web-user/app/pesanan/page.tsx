@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { STATUS_LABELS, STATUS_TONES } from '@kantin/ui/demo';
-import { Badge, Button, FulfillmentDetails, Modal, OrderChat, OrderRefundPanel, formatMoney } from '@kantin/ui';
+import { Badge, Button, Field, FulfillmentDetails, Modal, OrderChat, OrderRefundPanel, formatMoney } from '@kantin/ui';
+import { UploadMetadataSchema } from '@kantin/shared';
 import type { Order, OrderDetailResponseSchema } from '@kantin/shared';
 import { useCustomerOrders } from '../../components/customer-orders';
 import { useCustomerAuth } from '../../components/customer-auth';
@@ -21,11 +22,11 @@ export default function OrdersPage() {
     <Button asChild><Link href="/masuk">Masuk</Link></Button>
   </section>;
 
-  async function paid(order: Order) {
+  async function paid(order: Order, file: File) {
     if (busy) return;
     setBusy(order.id);
     setActionError('');
-    try { await state.paid(order); }
+    try { await state.paid(order,file); }
     catch (error) {
       setActionError(error instanceof Error ? error.message : 'Klaim belum dapat dikirim.');
     } finally { setBusy(''); }
@@ -60,7 +61,7 @@ export default function OrdersPage() {
             <p className="small">Periksa riwayat transaksi sebelum membayar atau mengirim klaim kembali.</p>
           </div>}
           <AwaitingPayment order={order} window={payment_window ?? null} busy={busy}
-            onPaid={() => void paid(order)} />
+            onPaid={file => void paid(order,file)} />
         </> : refund?.status!=='diproses' && refund?.status!=='dikembalikan'
           && <p className="notice small">{statusDescription(order.status)}</p>}
         {payment_window?.expired_at && <p className="small">Tenggat pembayaran lewat dan stok sudah dilepas. Jika sudah transfer, ajukan refund di bawah.</p>}
@@ -90,10 +91,12 @@ function AwaitingPayment({ order, window: paymentWindow, busy, onPaid }: {
   order:Order;
   window:NonNullable<ReturnType<typeof OrderDetailResponseSchema.parse>['payment_window']> | null;
   busy:string;
-  onPaid:()=>void;
+  onPaid:(file:File)=>void;
 }) {
   const deadline = order.payment_status==='unpaid' ? paymentWindow?.deadline_at : null;
   const [due, setDue] = useState(false);
+  const [file,setFile] = useState<File|null>(null);
+  const [fileError,setFileError] = useState('');
   useEffect(()=>{
     if (!deadline) return;
     const timer=setTimeout(()=>setDue(true),Math.max(0,Date.parse(deadline)-Date.now()));
@@ -101,12 +104,27 @@ function AwaitingPayment({ order, window: paymentWindow, busy, onPaid }: {
   },[deadline]);
   if (deadline && due) return <p className="notice small">Tenggat pembayaran lewat. Tunggu status diperbarui sebelum melanjutkan.</p>;
   return <>
-    {deadline && <p className="small">Bayar dan klik Saya sudah bayar sebelum {
+    {deadline && <p className="small">Bayar dan kirim bukti sebelum {
       new Intl.DateTimeFormat('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Jakarta'}).format(new Date(deadline))
     } WIB.</p>}
     <Payment id={order.id} />
-    <Button loading={busy===order.id} disabled={!!busy} onClick={onPaid}>
-      {order.payment_status==='rejected' ? 'Kirim ulang klaim pembayaran' : 'Saya sudah bayar'}
+    <Field label="Tangkapan layar bukti bayar" hint="JPG, PNG, atau WebP · maksimal 2 MiB">
+      <input className="input" type="file" accept="image/jpeg,image/png,image/webp" disabled={!!busy}
+        onChange={event=>{
+          const selected=event.target.files?.[0]??null;
+          if(selected&&!UploadMetadataSchema.safeParse({mime_type:selected.type,size_bytes:selected.size}).success){
+            setFile(null);
+            setFileError('Pilih JPG, PNG, atau WebP maksimal 2 MiB.');
+            event.target.value='';
+            return;
+          }
+          setFileError('');
+          setFile(selected);
+        }} />
+    </Field>
+    {fileError&&<p className="form-error" role="alert">{fileError}</p>}
+    <Button loading={busy===order.id} disabled={!!busy||!file} onClick={()=>{if(file)onPaid(file);}}>
+      {order.payment_status==='rejected' ? 'Kirim ulang bukti pembayaran' : 'Kirim bukti pembayaran'}
     </Button>
   </>;
 }

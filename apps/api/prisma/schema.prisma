@@ -141,6 +141,7 @@ model Order {
   paymentWindow OrderPaymentWindow?
   refund OrderRefund?
   fulfillment OrderFulfillmentDetail?
+  paymentProofs OrderPaymentProof[]
   chatReceipts OrderChatReceipt[]
   @@unique([id,tenantId])
   @@index([tenantId,createdAt,id],map:"orders_tenant_created_idx")
@@ -149,6 +150,15 @@ model Order {
   @@index([tenantId,paymentStatus,createdAt,id],map:"orders_tenant_payment_idx")
   @@map("orders")
   @@schema("public")
+}
+model OrderPaymentProof {
+  orderId String @map("order_id") @db.Uuid
+  claimVersion Int @map("claim_version")
+  objectPath String @unique @map("object_path")
+  order Order @relation(fields:[orderId],references:[id],onDelete:Restrict,onUpdate:NoAction)
+  @@id([orderId,claimVersion])
+  @@map("order_payment_proofs")
+  @@schema("app_private")
 }
 model OrderFulfillmentDetail {
   orderId String @id @map("order_id") @db.Uuid

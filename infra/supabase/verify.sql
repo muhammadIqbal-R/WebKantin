@@ -12,7 +12,7 @@ SELECT
   NOT has_table_privilege('order_tracker','public.orders','INSERT,UPDATE,DELETE,TRUNCATE') AS tracker_read_only,
   has_table_privilege('order_tracker','public.orders','SELECT') AS tracker_has_select,
   NOT has_schema_privilege('anon','app_private','USAGE') AS anonymous_private_schema_denied;
-SELECT id,name,public,file_size_limit,allowed_mime_types FROM storage.buckets WHERE id IN ('menu-photos','tenant-qris','floor-maps') ORDER BY id;
+SELECT id,name,public,file_size_limit,allowed_mime_types FROM storage.buckets WHERE id IN ('menu-photos','tenant-qris','floor-maps','payment-proofs') ORDER BY id;
 SELECT pubname,schemaname,tablename FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='orders';
 SELECT (SELECT count(*) FROM public.outlets) AS outlets,(SELECT count(*) FROM public.tenants) AS tenants,
   (SELECT count(*) FROM public.menus) AS menus,(SELECT count(*) FROM app_private.users) AS staff_profiles;
@@ -23,8 +23,12 @@ BEGIN
   SELECT count(*) INTO protected_count FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
     WHERE c.relkind='r' AND c.relrowsecurity AND c.relforcerowsecurity
     AND ((n.nspname='public' AND c.relname IN ('outlets','tenants','menus','orders','order_items'))
-      OR (n.nspname='app_private' AND c.relname IN ('users','checkout_requests','checkout_orders','order_access_grants','order_payment_snapshots','order_events','order_messages','order_chat_receipts','order_payment_windows','order_refunds','audit_events')));
+      OR (n.nspname='app_private' AND c.relname IN ('users','checkout_requests','checkout_orders','order_access_grants','order_payment_snapshots','order_events','audit_events')));
   IF protected_count<>12 THEN RAISE EXCEPTION 'Expected 12 protected application tables, found %',protected_count; END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE c.relkind='r' AND n.nspname='app_private' AND NOT (c.relrowsecurity AND c.relforcerowsecurity)
+  ) THEN RAISE EXCEPTION 'Application private tables must use forced RLS'; END IF;
   IF pg_has_role('authenticator','kantin_api','MEMBER') THEN RAISE EXCEPTION 'API role must not be granted to authenticator'; END IF;
 END
 $verify$;

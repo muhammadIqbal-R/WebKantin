@@ -6,9 +6,9 @@ import {
   OutletSchema, UpdateOutletRequestSchema, UploadResponseSchema, type Outlet,
 } from '@kantin/shared';
 import { Badge, Button, Field, FloorMap, Modal } from '@kantin/ui';
-import { DataState } from '../../components/data-state';
-import { ImageField } from '../../components/image-field';
-import { collect, useLoad, useManagement } from '../../components/management';
+import { DataState } from '@kantin/staff/data-state';
+import { ImageField } from '@kantin/staff/image-field';
+import { collect, useLoad, useManagement } from '@kantin/staff/management';
 
 export default function MapPage() {
   const { request } = useManagement();

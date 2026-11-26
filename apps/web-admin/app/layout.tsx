@@ -2,7 +2,7 @@ import localFont from 'next/font/local';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
-import { AdminShell } from '../components/admin-shell';
+import { StaffShell } from '@kantin/staff/shell';
 const poppins = localFont({
   src: [
     { path: '../../../packages/ui/fonts/Poppins-Regular.ttf', weight: '400', style: 'normal' },
@@ -15,5 +15,5 @@ const poppins = localFont({
 });
 export const metadata: Metadata = { title: 'Pengelola — Kantin Vokasi UI', description: 'Pengelolaan tenant, menu, stok, dan akses kantin.' };
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="id" className={poppins.variable}><body className="management-app"><AdminShell>{children}</AdminShell></body></html>;
+  return <html lang="id" className={poppins.variable}><body className="management-app"><StaffShell role="admin_pengelola">{children}</StaffShell></body></html>;
 }

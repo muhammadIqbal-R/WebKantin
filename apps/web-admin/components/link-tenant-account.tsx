@@ -2,6 +2,6 @@
 import {useCallback,useState} from 'react';
 import {ManagedTenantsResponseSchema,MeResponseSchema} from '@kantin/shared';
 import {Button,Field} from '@kantin/ui';
-import {useManagement,useLoad,collect} from './management';
-import {DataState} from './data-state';
+import {useManagement,useLoad,collect} from '@kantin/staff/management';
+import {DataState} from '@kantin/staff/data-state';
 export function LinkTenantAccount({id,done}:{id:string;done:()=>Promise<void>}){const {request}=useManagement(),load=useCallback(()=>collect(request,'/api/admin/tenants',ManagedTenantsResponseSchema),[request]),state=useLoad(load);const [tenant,setTenant]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');async function submit(){setBusy(true);setError('');try{await request('/api/admin/tenant-accounts/link',MeResponseSchema,'POST',{user_id:id,tenant_id:tenant});await done();}catch(failure:unknown){setError(failure instanceof Error?failure.message:'Akun belum dapat dihubungkan.');}finally{setBusy(false);}}return <div className="stack"><DataState {...state} retry={state.reload}/><p>Akun ini mendapat akses menu, stok, dan pesanan tenant yang dipilih.</p><Field label="Tenant"><select className="select" value={tenant} onChange={event=>setTenant(event.target.value)}><option value="">Pilih tenant</option>{state.data?.filter(item=>!item.archived_at).map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>{error?<p className="form-error" role="alert">{error}</p>:null}<Button loading={busy} disabled={!tenant} onClick={()=>void submit()}>Hubungkan akun tenant</Button></div>;}

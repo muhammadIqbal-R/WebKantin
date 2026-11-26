@@ -87,7 +87,10 @@ export const CheckoutOrderSchema = z.strictObject({
   qris: z.strictObject({ image_url: HttpsUrlSchema, merchant_name: z.string().min(2).max(150) }),
 });
 export const CreateOrdersResponseSchema = z.strictObject({ orders: z.array(CheckoutOrderSchema).min(1).max(LIMITS.maxCartLines) });
-export const ReportPaidRequestSchema = z.strictObject({ expected_version: VersionSchema });
+export const ReportPaidQuerySchema = z.strictObject({
+  expected_version: z.string().regex(/^[1-9][0-9]{0,9}$/).transform(Number).pipe(VersionSchema.max(2_147_483_646)),
+});
+export const PaymentProofResponseSchema = z.strictObject({ image_url: HttpsUrlSchema.nullable() });
 export const ConfirmPaymentRequestSchema = z.strictObject({
   expected_version: VersionSchema, decision: z.enum(['accept', 'reject']),
   reason: z.string().trim().min(2).max(300).optional(),

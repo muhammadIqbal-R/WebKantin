@@ -1,7 +1,7 @@
 # F-08 · Konfirmasi Pembayaran dan Status Order
 **Status:** draft
 **Pemilik:** Lead Full-Stack Engineer
-**Terakhir diperbarui:** 2026-11-12
+**Terakhir diperbarui:** 2026-11-26
 **Terkait:** F-03, F-04, F-09, SEC-02
 
 Istilah mengikuti [MASTER](../MASTER.md); detail ini merupakan kontrak rencana, belum endpoint aktif.
@@ -18,7 +18,7 @@ Sebagai tenant, saya melihat klaim pembayaran order sendiri, mencocokkan mutasi,
 
 ## 3. Alur (happy path + edge case)
 
-Happy path: filter pending → cek merchant/nominal/mutasi eksternal → accept → order diproses/paid dan audit terisi → siap → selesai.
+Happy path: akun tenant membuka antrean setelah login → buka kode pesanan → cek gambar bukti, merchant, nominal, dan mutasi → terima pembayaran dan proses pesanan → tandai siap diambil → selesai. Admin memantau pesanan melalui daftar baca saja sesuai akses status. Bukti dan konfirmasi tersedia untuk tenant pemilik order.
 Reject: pending → menunggu_bayar/rejected, reason wajib; pemesan dapat lapor ulang. Batal hanya sebelum paid; pending yang dibatalkan menjadi dibatalkan/rejected dengan event alasan.
 
 Audit 23 November: detail pesanan staf memuat nama merchant dari snapshot
@@ -32,7 +32,7 @@ Revisi 21 November: [vendor launch](../vendor-launch.md) menghubungkan konfirmas
 
 `GET /api/admin/orders` AdminOrderQuerySchema (tenant_id/status/payment_status/cursor/limit) → 200 AdminOrderListResponseSchema; `GET /api/admin/orders/:id` IdParamsSchema → OrderDetailResponseSchema.
 `PATCH /api/admin/orders/:id/confirm-payment` ConfirmPaymentRequestSchema `{expected_version:2,decision:"accept"}` atau `{expected_version:2,decision:"reject",reason:"Mutasi belum ditemukan"}` → 200 OrderSchema.
-`PATCH /api/admin/orders/:id/status` UpdateOrderStatusRequestSchema `{expected_version:3,status:"siap"}`; status yang dapat diminta siap/selesai/dibatalkan → 200 OrderSchema. Semua admin path wajib tenant/admin JWT. 400 invalid, 401, 403 filter tenant lain, 404 resource scope, 409 state/version, 429.
+`PATCH /api/admin/orders/:id/status` UpdateOrderStatusRequestSchema `{expected_version:3,status:"siap"}`; status yang dapat diminta siap, selesai, dan dibatalkan. Ketiga endpoint untuk bukti, konfirmasi, dan mutasi status memerlukan JWT tenant pemilik pesanan. `GET /api/admin/orders/:id/payment-proof` menghasilkan `PaymentProofResponseSchema` dengan URL bertanda tangan selama lima menit atau null untuk riwayat tanpa bukti. 403 untuk admin pada endpoint operasional. 404 untuk pesanan di luar tenant. 409 bila versi atau status berubah.
 
 ## 5. Skema Data (rujukan ke packages/shared)
 
@@ -48,7 +48,7 @@ Antrean tenant awal hanya memuat order miliknya. Setelah tenant baru ditambahkan
 
 ## 8. Catatan Keamanan
 
-API RBAC + RLS; compare-and-set version dalam transaksi. Audit dan status tidak boleh commit terpisah. Pino tanpa secret/PII. Accept/reject memerlukan konfirmasi UI agar operator meninjau merchant/nominal; UI bukan kontrol keamanan.
+API RBAC, RLS, dan trigger memeriksa tenant. Versi, audit, dan status diperbarui dalam transaksi. Bukti pembayaran hanya disajikan lewat URL sementara yang diminta tenant pemilik order, dengan respons no-store. Tenant mencocokkan tangkapan layar dengan mutasi merchant. Penanganan refund mengikuti F-11.
 
 ## 9. Catatan Desain (rujuk DESIGN.md)
 

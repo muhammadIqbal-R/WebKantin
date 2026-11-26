@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ApiErrorSchema, MeResponseSchema, type User } from '@kantin/shared';
-import { staffAuth } from '../lib/supabase';
+import { staffAuth } from './supabase';
 type Parser<T>={parse:(value:unknown)=>T};
 export type RequestData=<T>(path:string,schema:Parser<T>,method?:'GET'|'POST'|'PATCH'|'DELETE',body?:unknown)=>Promise<T>;
 type State={actor:User|null;loading:boolean;error:string;request:RequestData;refreshIdentity:()=>Promise<void>;signOut:()=>Promise<void>};

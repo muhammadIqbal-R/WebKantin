@@ -2,7 +2,7 @@
 
 **Status:** draft  
 **Pemilik:** Lead Full-Stack Engineer / Software Architect; persetujuan oleh pemilik produk  
-**Terakhir diperbarui:** 2026-11-25
+**Terakhir diperbarui:** 2026-11-26
 **Milestone aktif:** revisi vendor: pilih tenant, katalog, akun staf, order persisten/QRIS manual, reservasi stok dan kode Realtime/notifikasi. Implementasi lokal diuji; pemasangan SQL/deploy/UAT Supabase live belum dilakukan agen.
 
 ## 1. Otoritas dan ruang lingkup
@@ -68,13 +68,13 @@ Status MASTER dan Feature harus sama pada setiap PR.
 | Lapisan | Stack terkunci |
 |---|---|
 | Workspace | Turborepo + pnpm |
-| Kedua frontend | Next.js App Router + TypeScript + Tailwind + shadcn/ui |
+| Frontend pelanggan, admin, tenant | Next.js App Router + TypeScript + Tailwind + shadcn/ui |
 | API | Express.js + TypeScript + Zod |
 | Data | PostgreSQL Supabase + Prisma hanya di API |
 | Identitas | Supabase Auth JWT untuk staf dan pelanggan |
 | Media | Supabase Storage |
 | Realtime | Supabase postgres_changes pada orders |
-| Deploy | Vercel untuk dua frontend, Railway untuk API, Supabase untuk data |
+| Deploy | Vercel untuk tiga frontend, Railway untuk API, Supabase untuk data |
 
 Semua pembacaan data aplikasi melalui API; client Supabase frontend hanya Auth
 session dan Realtime. Semua mutasi bisnis, termasuk upload media dan provisioning akun staf,
@@ -234,6 +234,14 @@ kontrol, navigasi dan angka. Muat lokal melalui next/font/local dengan weight
 Palet olive/cream dan komposisi logo mengikuti ADR-015. Font resmi Google Fonts
 dan lisensi OFL disimpan di packages/ui/fonts; tidak ada dependency runtime baru.
 
+### ADR-017 · Portal tenant terpisah — decided
+
+`apps/web-tenant` menggunakan URL dan deployment Vercel sendiri, dengan
+komponen staf bersama di `packages/staff`. Admin mengelola pendaftaran tenant,
+akun awal, QRIS, dan katalog. Admin dapat memantau pesanan. Tenant memeriksa
+bukti bayar dan mengubah status order miliknya. Auth memakai proyek Supabase
+yang sama dan Express tetap memeriksa peran dan tenant pada setiap request.
+
 ## 6. Indeks kontrak, desain, dan keamanan
 
 - [Revisi vendor 21 November](vendor-launch.md): tenant-first, katalog vendor, akun staf, checkout persisten dan notifikasi berbasis JWT akun. Akun baru mengganti ketergantungan ADR-006 capability anonim; semua mutasi tetap API. Draft PRD lain tidak otomatis approved.
@@ -275,6 +283,7 @@ Estimasi PRD ±10 minggu untuk satu developer; bukan janji jadwal baru.
 | 2026-11-25 | Pengguna meminta nomor meja, catatan pengambilan, dan pembaruan stok katalog | F-01 dan F-02. Stok dibaca lewat Express. Keterangan pengambilan tersimpan privat per order. |
 | 2026-11-25 | Pengguna meminta reset password, notifikasi chat, pembatalan otomatis, dan refund | F-09, F-10, F-02/F-08, dan F-11. Refund dicatat di web sebagai transaksi manual melalui tenant. |
 | 2026-11-24 | Pengguna meminta pelanggan bisa membalas pesan tenant | F-10 mengganti batas tanpa chat. Percakapan melekat pada order yang sudah ada. Pesan dibaca dan dikirim melalui Express. |
+| 2026-11-26 | Pengguna meminta portal tenant tersendiri, akun awal, dan bukti QRIS | ADR-017 menambah frontend tenant. Admin mendaftarkan tenant, membuat akun awal, dan memantau pesanan. Wewenang mutasi status pindah ke tenant pesanan, mengganti kewenangan admin dari revisi awal F-08. [Alur terkait](features/F-08-konfirmasi-pembayaran.md). |
 | 2026-11-23 | Audit ulang alur pelanggan, tenant, dan pengelola | Keranjang bertahan saat masuk, umpan balik QRIS/status diperjelas, serta F-05 denah/outlet terhubung ke API. [Laporan audit](qa/FLOW-AUDIT-2026-11-23.md). |
 | 2026-11-21 | Vendor meminta tenant-first, katalog, akun dan notifikasi | vendor-launch.md: ownership Auth, RLS pemilik/staf, INSERT/UPDATE publication dan audio opt-in; SQL live/deploy oleh operator. |
 | 2026-11-20 | Tambah tenant harus mencakup menu, gambar dan detail di dalamnya | Onboarding `/tenant/:id`, foto/menu/QRIS melalui Express, katalog publik API; checkout/realtime tetap terpisah. |

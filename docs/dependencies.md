@@ -1,5 +1,9 @@
 # Alasan dependency · M0
 
+`@kantin/staff` adalah paket workspace internal untuk memakai ulang sesi staf,
+navigasi, katalog, dan antrean pada web-admin dan web-tenant. Portal tenant
+menggunakan versi Next.js, React, dan Tailwind yang sama dengan portal admin.
+
 **Status:** draft · 2026-11-12. Versi exact dikunci package.json dan pnpm-lock.yaml.
 
 | Dependency | Alasan |

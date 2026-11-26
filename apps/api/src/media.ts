@@ -5,8 +5,8 @@ import type { Request } from 'express';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { IdSchema, LIMITS, UploadMetadataSchema } from '@kantin/shared';
 import { HttpError } from './errors.js';
-export type MediaPurpose = 'menu_photo' | 'tenant_qris' | 'floor_map';
-const buckets = {menu_photo:'menu-photos',tenant_qris:'tenant-qris',floor_map:'floor-maps'} as const;
+export type MediaPurpose = 'menu_photo' | 'tenant_qris' | 'floor_map' | 'payment_proof';
+const buckets = {menu_photo:'menu-photos',tenant_qris:'tenant-qris',floor_map:'floor-maps',payment_proof:'payment-proofs'} as const;
 export async function readImage(req: Request): Promise<{bytes:Buffer;mime:string}> {
   return new Promise((resolve,reject)=>{
     let parser:ReturnType<typeof Busboy>;
@@ -58,13 +58,28 @@ export class Media {
     return owner+'/'+filename;
   }
   async assertAsset(url:string,purpose:MediaPurpose,owner:string){const path=this.path(url,purpose,owner);const {data,error}=await this.storage().from(buckets[purpose]).info(path);if(error||!data)throw new HttpError(400,'Aset gambar tidak ditemukan. Unggah kembali melalui aplikasi.');}
-  async upload(bytes:Buffer,purpose:MediaPurpose,owner:string){
+  private async uploadObject(bytes:Buffer,purpose:MediaPurpose,owner:string){
     const path=owner+'/'+randomUUID()+'.webp',bucket=buckets[purpose],storage=this.storage().from(bucket);
     const {data,error}=await storage.createSignedUploadUrl(path,{upsert:false});
     if(error||!data)throw new HttpError(503,'Gambar belum dapat diunggah. Periksa konfigurasi Storage.');
-    const result=await storage.uploadToSignedUrl(path,data.token,bytes,{contentType:'image/webp',cacheControl:'31536000'});
+    const result=await storage.uploadToSignedUrl(path,data.token,bytes,{contentType:'image/webp',cacheControl:purpose==='payment_proof'?'0':'31536000'});
     if(result.error)throw new HttpError(503,'Upload gambar gagal. Coba kembali.');
-    return this.origin+'/storage/v1/object/'+(purpose==='menu_photo'?'public':'authenticated')+'/'+bucket+'/'+path;
+    return path;
+  }
+  async upload(bytes:Buffer,purpose:Exclude<MediaPurpose,'payment_proof'>,owner:string){
+    const path = await this.uploadObject(bytes,purpose,owner);
+    return this.origin+'/storage/v1/object/'+(purpose==='menu_photo'?'public':'authenticated')+'/'+buckets[purpose]+'/'+path;
+  }
+  uploadPaymentProof(bytes:Buffer,orderId:string){
+    return this.uploadObject(bytes,'payment_proof',orderId);
+  }
+  async previewPaymentProof(path:string){
+    const {data,error}=await this.storage().from(buckets.payment_proof).createSignedUrl(path,300);
+    if(error||!data)throw new HttpError(503,'Bukti pembayaran belum dapat dimuat. Coba kembali.');
+    return data.signedUrl;
+  }
+  async discardPaymentProof(path:string){
+    await this.storage().from(buckets.payment_proof).remove([path]);
   }
   async preview(url:string,owner:string,purpose:'tenant_qris'|'floor_map'='tenant_qris'):Promise<string|null>{
     try {

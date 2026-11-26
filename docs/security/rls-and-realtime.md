@@ -31,6 +31,11 @@ RLS adalah defense tambahan atas filter tenant di setiap service API.
 | order_events, order_payment_snapshots | Projection relevan via API | Scope sendiri | Semua | Tidak |
 | order_messages | JWT pemilik order | JWT staf aktif dan tenant sesuai | Tidak | Tidak |
 | order_fulfillment_details | JWT pemilik order | Tenant order saja | Semua | Tidak |
+| order_payment_proofs | Pengiriman bukti milik order lewat Express | Pratinjau order sendiri lewat URL sementara | Tidak | Tidak |
+
+Bucket `payment-proofs` privat dan policy restrictive menutup akses langsung dari
+role browser. Trigger order menolak klaim baru tanpa bukti untuk versi klaim
+tersebut dan menolak mutasi status oleh admin. Worker kedaluwarsa tetap berjalan.
 
 users, grants, checkout_requests, checkout_orders, events, audit_events dan payment snapshots berada di skema privat
 yang tidak diekspos Data API; semua tetap RLS. orders tidak mengandung token digest,

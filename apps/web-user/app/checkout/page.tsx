@@ -107,7 +107,7 @@ export default function CheckoutPage() {
       </div>
       <aside className="cart-panel"><h2 className="section-title">Ringkasan pembayaran</h2><div className="checkout-summary" style={{ marginTop: 'var(--s4)' }}><span className="muted">Subtotal</span><span>{formatMoney(total)}</span></div>
         <div className="checkout-summary"><span className="muted">Biaya tambahan</span><span>{formatMoney(0)}</span></div><div className="checkout-summary total"><span>Total</span><span>{formatMoney(total)}</span></div>
-        <div className="notice" style={{ marginBlock: 'var(--s4)' }}><QrCode /><span className="small">Pembayaran melalui QRIS tenant. Konfirmasi dilakukan manual oleh pengelola.</span></div>
+        <div className="notice" style={{ marginBlock: 'var(--s4)' }}><QrCode /><span className="small">Bayar dengan QRIS dan kirim bukti pembayaran ke tenant.</span></div>
         {error ? <div className="stack"><p className="form-error" role="alert" id="checkout-error">{error}</p>
           {catalog && <Button variant="outline" type="button" onClick={catalog.retry}>Perbarui katalog dan stok</Button>}
         </div> : null}

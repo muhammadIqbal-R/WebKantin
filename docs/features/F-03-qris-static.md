@@ -1,7 +1,7 @@
 # F-03 · Pembayaran QRIS Statis
 **Status:** draft
 **Pemilik:** Lead Full-Stack Engineer
-**Terakhir diperbarui:** 2026-11-12
+**Terakhir diperbarui:** 2026-11-26
 **Terkait:** F-02, F-04, F-08, SEC-01
 
 Istilah mengikuti [MASTER](../MASTER.md); detail ini merupakan kontrak rencana, belum endpoint aktif.
@@ -18,7 +18,7 @@ Sebagai pemesan, saya melihat merchant dan nominal setiap order lalu melaporkan 
 
 ## 3. Alur (happy path + edge case)
 
-Happy path: tampilkan snapshot QRIS/merchant/total → pemesan membayar lewat aplikasi pembayaran → klik Saya sudah bayar → API mengubah menunggu_bayar/unpaid atau rejected menjadi menunggu_konfirmasi/pending_confirmation.
+Happy path: tampilkan snapshot QRIS, merchant, dan total → pelanggan membayar lewat aplikasi pembayaran → pilih tangkapan layar bukti → Kirim bukti pembayaran → API mencatat bukti dan mengubah status menjadi menunggu_konfirmasi.
 Edge: klaim ulang saat pending → respons state saat ini bila idempotent; sudah paid/terminal → 409; versi stale → 409 lalu refresh; gambar gagal → tampilkan retry dan jangan mengklaim pembayaran sukses; ditolak → alasan aman dari API dan kesempatan bayar/lapor ulang sesuai F-08.
 
 Audit 23 November: respons detail milik pelanggan memuat `payment_rejection_reason`
@@ -28,11 +28,11 @@ Panel memberi label bahwa alasan tersebut ditampilkan kepada pelanggan.
 ## 4. Kontrak API (endpoint, request, response)
 
 `GET /api/orders/:code` (F-04) menyediakan order/items; QRIS snapshot dibaca melalui `GET /api/orders/:id/payment` dengan IdParamsSchema + X-Order-Access-Token → 200 PaymentInstructionsResponseSchema `{order_id,total,qris:{image_url,merchant_name}}`.
-`PATCH /api/orders/:id/paid` publik berbasis capability. IdParamsSchema + OrderAccessHeadersSchema; body ReportPaidRequestSchema `{expected_version:1}` → 200 OrderSchema dengan version baru. 400 invalid; 404 order/token mismatch; 409 state/version; 429. No-store.
+`PATCH /api/orders/:id/paid?expected_version=1` memerlukan JWT pelanggan pemilik pesanan. `ReportPaidQuerySchema` memvalidasi versi dan body multipart memuat satu field `file` (JPG, PNG, atau WebP, maksimal 2 MiB). Respons 200 `OrderResponseSchema`. File disimpan di bucket privat `payment-proofs`. Baris `app_private.order_payment_proofs` menyimpan path dan versi klaim dalam transaksi yang sama dengan perubahan status. Kirim ulang setelah penolakan memerlukan gambar baru. Klaim lama yang sudah menunggu konfirmasi tetap bisa ditinjau tenant lewat mutasi merchant.
 
 ## 5. Skema Data (rujukan ke packages/shared)
 
-`PaymentInstructionsResponseSchema`, `ReportPaidRequestSchema`, `OrderAccessHeadersSchema`, `OrderSchema`, `PAYMENT_STATUSES`, `PAYMENT_METHODS`. payment_method hanya qris_static. Tidak ada field card/cash/gateway.
+`PaymentInstructionsResponseSchema`, `ReportPaidQuerySchema`, `UploadMetadataSchema`, `OrderSchema`, `PAYMENT_STATUSES`, `PAYMENT_METHODS`. payment_method hanya qris_static.
 
 ## 6. Aturan Bisnis
 
@@ -40,7 +40,7 @@ Tombol hanya melaporkan klaim, tidak dapat menjadikan paid. QRIS statis tidak me
 
 ## 7. Kriteria Terima
 
-Nominal/merchant cocok snapshot checkout. Klik klaim menghasilkan pending_confirmation dan menunggu_konfirmasi secara atomik. Tenant/admin yang berwenang menjadi satu-satunya pihak accept/reject.
+Nominal dan merchant cocok dengan snapshot checkout. Gambar yang valid diperlukan untuk pindah ke menunggu_konfirmasi. Hanya tenant pemilik order dapat menerima atau menolak klaim.
 
 ## 8. Catatan Keamanan
 

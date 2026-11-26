@@ -10,7 +10,7 @@ async function sources(dir) {
   }));
   return groups.flat();
 }
-const files = (await Promise.all(['apps/web-user/app','apps/web-user/components','apps/web-admin/app','apps/web-admin/components','packages/ui/src'].map((dir) => sources(path.join(root,dir))))).flat();
+const files = (await Promise.all(['apps/web-user/app','apps/web-user/components','apps/web-admin/app','apps/web-admin/components','apps/web-tenant/app','packages/staff/src','packages/ui/src'].map((dir) => sources(path.join(root,dir))))).flat();
 const errors = [];
 for (const file of files) {
   if (file.endsWith('tokens.css')) continue;

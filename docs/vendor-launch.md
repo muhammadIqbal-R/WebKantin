@@ -39,12 +39,13 @@ Stok berkurang atomik saat order dibuat. Stok kurang menggagalkan seluruh checko
 | POST /api/orders | Customer JWT, CheckoutHeadersSchema, CreateOrdersRequestSchema → CreateOrdersResponseSchema |
 | GET /api/orders | Customer JWT, PaginationQuerySchema → OwnedOrdersResponseSchema |
 | GET /api/orders/:id/payment | Pemilik → PaymentInstructionsResponseSchema |
-| PATCH /api/orders/:id/paid | Pemilik, ReportPaidRequestSchema → Order response |
+| PATCH /api/orders/:id/paid | Pemilik, ReportPaidQuerySchema dan satu gambar multipart → Order response |
 | GET /api/admin/orders | AdminOrderQuerySchema → AdminOrderListResponseSchema |
 | GET /api/admin/orders/:id | Staf sesuai tenant → OrderDetailResponseSchema |
 | GET /api/admin/orders/:id/payment | Staf sesuai tenant → PaymentInstructionsResponseSchema |
-| PATCH /api/admin/orders/:id/confirm-payment | ConfirmPaymentRequestSchema → Order response |
-| PATCH /api/admin/orders/:id/status | UpdateOrderStatusRequestSchema → Order response |
+| GET /api/admin/orders/:id/payment-proof | Tenant pemilik order → PaymentProofResponseSchema |
+| PATCH /api/admin/orders/:id/confirm-payment | Tenant pemilik order, ConfirmPaymentRequestSchema → Order response |
+| PATCH /api/admin/orders/:id/status | Tenant pemilik order, UpdateOrderStatusRequestSchema → Order response |
 | GET /api/admin/order-notifications | Cursor opaque tervalidasi → OrderNotificationFeedSchema |
 
 ## Realtime dan notifikasi
@@ -73,7 +74,7 @@ Tes: harga/import idempotent, tenant-first, linking staf, checkout retry/rollbac
 3. API: isi DATABASE_URL kantin_api, SUPABASE_URL, SUPABASE_SECRET_KEY dan dua WEB_*_ORIGIN. Jalankan `pnpm --filter @kantin/api key:setup` untuk mengisi kunci enkripsi checkout lokal jika masih kosong/placeholder. Kunci tidak dicetak. Untuk Railway, pindahkan nilai kunci tersebut secara privat ke IDEMPOTENCY_ENCRYPTION_KEY; pertahankan nilai yang sama antar-replica/deploy agar replay lama tetap terbaca. DIRECT_URL/owner credential tidak diberikan ke runtime API.
 4. Kedua frontend: NEXT_PUBLIC_API_URL adalah URL API yang aktif, NEXT_PUBLIC_SUPABASE_URL/publishable key project yang sama. Isi NEXT_PUBLIC_ADMIN_URL pada web-user dengan domain login admin; isi NEXT_PUBLIC_USER_URL pada web-admin dengan domain pelanggan. Build produksi tidak memakai fallback localhost untuk tautan antarportal yang belum diisi. Konfigurasikan redirect Auth untuk domain user `/masuk` dan domain admin `/login`; restart API/redeploy frontend setelah env berubah.
 5. Login web-admin dengan akun admin. Buka Tenant → Tambahkan katalog vendor → tinjau 3 tenant/9 menu → konfirmasi. Buka Kelola tenant untuk mengisi foto, QRIS merchant dan stok manual; aktifkan setelah siap. Import ulang tidak menggandakan/menimpa menu existing, data placeholder lama tidak dihapus otomatis.
-6. Tenant baru: admin menekan Undang akun pada tenant, memasukkan email pengelola yang benar; penerima membuka tautan dan menetapkan password pada login pengelola. Bila email sudah menjadi akun pelanggan, gunakan Akun & akses → Jadikan akun tenant → pilih tenant. Tidak perlu mendaftar sebagai tenant dari web pelanggan.
+6. Tenant baru: admin memilih Daftarkan tenant di sidebar, memasukkan email dan password awal, lalu melengkapi katalog dan QRIS. Tenant masuk lewat domain tenant. Untuk email pelanggan yang sudah terdaftar, gunakan Akun & akses → Jadikan akun tenant → pilih tenant. [Panduan deploy portal tenant](tenant-deploy.md).
 7. Buka panel Pesanan tenant dan tekan Aktifkan bunyi, lalu Tes bunyi. Izin desktop opsional. Pesanan baru/klaim bayar memberi indikator dan suara; jangan menerima pembayaran sebelum memeriksa mutasi merchant. Panel/browser harus tetap terbuka; tidak ada Web Push saat browser ditutup.
 
 UAT operator: pelanggan pilih tenant dahulu, daftar/login, pesan lintas dua tenant,

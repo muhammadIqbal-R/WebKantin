@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { useCallback } from 'react';
 import { ManagedMenusResponseSchema, ManagedTenantsResponseSchema } from '@kantin/shared';
 import { Button } from '@kantin/ui';
-import { collect,useLoad,useManagement } from '../components/management';
-import { DataState } from '../components/data-state';
+import { collect,useLoad,useManagement } from '@kantin/staff/management';
+import { DataState } from '@kantin/staff/data-state';
 export default function DashboardPage(){
   const {request,actor}=useManagement();
   const load=useCallback(async()=>{const [menus,tenants]=await Promise.all([collect(request,'/api/admin/menus',ManagedMenusResponseSchema),collect(request,'/api/admin/tenants',ManagedTenantsResponseSchema)]);return {menus,tenants};},[request]);const state=useLoad(load);

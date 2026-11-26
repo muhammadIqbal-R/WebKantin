@@ -1,7 +1,7 @@
 # F-06 · Manajemen Tenant dan Akun Tenant
 **Status:** draft
 **Pemilik:** Lead Full-Stack Engineer
-**Terakhir diperbarui:** 2026-11-20
+**Terakhir diperbarui:** 2026-11-26
 **Terkait:** F-05, F-07, F-09, SEC-02
 
 Istilah mengikuti [MASTER](../MASTER.md); detail ini merupakan kontrak rencana, belum endpoint aktif.
@@ -20,7 +20,7 @@ Sebagai admin, saya dapat menambah tenant dan merchant QRIS serta menetapkan aku
 
 Revisi onboarding: setelah tambah tenant, langsung buka halaman `/tenant/:id` untuk menu di tenant tersebut (foto, harga, kategori, deskripsi, stok) dan QRIS/merchant. Draft tetap tersimpan bila setup belum selesai; aktivasi hanya setelah QRIS dan menu siap. [Detail](../staff-management.md).
 
-Setup awal menyediakan satu tenant pada outlet kantin fakultas. Penambahan berikutnya: admin login → buka daftar tenant → Tambah tenant → outlet kantin fakultas terpilih → isi identitas tenant → unggah QRIS via API → simpan merchant → undang akun tenant → isi menu melalui F-07 → aktifkan tenant siap jual.
+Admin login → pilih Daftarkan tenant di sidebar → isi nama, deskripsi, lokasi, email akun, dan password awal → lanjut ke detail untuk mengisi foto QRIS, merchant, dan menu (nama, harga, deskripsi, foto, dan stok) → aktifkan tenant. Jika pembuatan akun gagal, draft tetap tersedia dan langkah akun dapat dicoba kembali.
 Edge: tenant tanpa QRIS boleh disimpan sebagai persiapan namun checkout ditolak; email sudah terdaftar → 409/review akun; provisioning Auth gagal → retry/kompensasi tanpa akun scope setengah jadi; hapus tenant = nonaktifkan, sejarah order tetap ada; pindah outlet tidak mengubah history order.
 
 ## 4. Kontrak API (endpoint, request, response)
@@ -29,7 +29,7 @@ Revisi implementasi 2026-11-20: [pengelolaan operasional](../staff-management.md
 Tambah tenant melalui API menjadi draft; `archived` pada PATCH mengarsipkan atau memulihkan tanpa menghapus history. GET tenant diizinkan untuk tenant dengan hasil scope sendiri; mutasi tenant hanya admin. Undangan akun adalah aksi terpisah yang eksplisit.
 
 Admin Pengelola JWT: `GET /api/admin/tenants` TenantListQuerySchema → TenantListResponseSchema; `GET /api/admin/tenants/:id` → TenantSchema; `POST /api/admin/tenants` CreateTenantRequestSchema → 201 TenantSchema; `PATCH /api/admin/tenants/:id` UpdateTenantRequestSchema → 200 TenantSchema; `DELETE /api/admin/tenants/:id` → 204 soft delete. IdParamsSchema pada resource path.
-`POST /api/admin/tenant-accounts` CreateTenantAccountRequestSchema `{tenant_id,email}` → 201 MeResponseSchema. Supabase Auth Admin invite dijalankan API, bukan client. Initial admin diprovision terkontrol di M1.
+`POST /api/admin/tenant-accounts` menerima `{tenant_id,email,password}` melalui CreateTenantAccountRequestSchema → 201 MeResponseSchema. Express membuat akun Supabase Auth dan profil tenant. Akun yang sudah ada tidak diubah passwordnya. Kontrak undangan lama tetap menerima payload tanpa password.
 QRIS melalui `POST /api/admin/uploads?purpose=tenant_qris&owner_id=<tenant-id>` sesuai F-07. Error 400/401/403/404/409/413/415/429.
 
 ## 5. Skema Data (rujukan ke packages/shared)

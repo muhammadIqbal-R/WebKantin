@@ -10,6 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@kantin/staff": "workspace:*",
     "@kantin/shared": "workspace:*",
     "@kantin/ui": "workspace:*",
     "@supabase/supabase-js": "2.119.0",

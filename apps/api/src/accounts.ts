@@ -19,6 +19,18 @@ export class Accounts {
     if(error || !data.user) throw new HttpError(409, 'Undangan gagal. Periksa email atau akun yang sudah terdaftar.');
     return data.user;
   }
+  async createWithPassword(email: string, password: string) {
+    const { data, error } = await this.admin().createUser({ email, password, email_confirm: true });
+    if (error || !data.user) {
+      if (error?.status && error.status >= 500) throw new HttpError(503, 'Layanan akun belum dapat dihubungi.');
+      throw new HttpError(409, 'Akun gagal dibuat. Periksa email dan password. Untuk email yang sudah terdaftar, gunakan Akun & akses.');
+    }
+    return data.user;
+  }
+  async removeNewAccount(id: string) {
+    const { error } = await this.admin().deleteUser(id);
+    if (error) throw new HttpError(503, 'Akun Auth perlu ditinjau melalui Akun & akses.');
+  }
   async setActive(id: string, active: boolean) {
     const {error} = await this.admin().updateUserById(id,{ban_duration:active?'none':'876000h'});
     if(error) throw new HttpError(503, 'Status masuk Auth belum diperbarui. Muat ulang lalu coba kembali.');

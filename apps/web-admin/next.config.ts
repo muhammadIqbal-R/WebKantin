@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   devIndicators: false,
-  transpilePackages: ["@kantin/ui"],
+  transpilePackages: ["@kantin/ui", "@kantin/staff"],
   /* config options here */
   experimental: {
     agentFeedback: true,

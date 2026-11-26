@@ -437,6 +437,12 @@ small,.small {
   height: 100%;
   object-fit: cover
 }
+.payment-proof-image {
+  max-inline-size: 100%;
+  max-block-size: 55vh;
+  object-fit: contain;
+  object-position: left;
+}
 .food-photo.upload-preview {
   width: min(100%, var(--cart-width));
   height: auto;

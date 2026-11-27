@@ -56,5 +56,17 @@ admin. Tambahkan URL `/login` dan `/lupa-password` pada domain tenant di
 4. Admin dapat membuka detail untuk pemantauan. API menolak percobaan admin
    untuk membuka bukti atau mengubah status pembayaran dan pesanan.
 
+## Rilis harga dan kategori menu
+
+1. Jalankan [menu-categories-upgrade.sql](../infra/supabase/menu-categories-upgrade.sql)
+   di SQL Editor Supabase setelah upgrade management. Migrasi ini memperluas
+   nama kategori tanpa menulis ulang nominal harga yang sudah tersimpan.
+2. Deploy ulang Express di Railway dan ketiga frontend. Tunggu semuanya siap
+   sebelum menyimpan kategori baru, lalu muat ulang tab yang sudah terbuka.
+3. Di Menu & stok, edit harga yang sebelumnya tersimpan pendek sesuai daftar
+   harga tenant. Coba masukkan `20.000` dan pastikan nominal tampil Rp 20.000
+   sebelum simpan. Tambah kategori pada satu menu, lalu cek filter di katalog
+   publik untuk tenant tersebut.
+
 Panduan resmi [Vercel monorepo](https://vercel.com/docs/monorepos)
 dan [pengaturan variabel Railway](https://docs.railway.com/variables).

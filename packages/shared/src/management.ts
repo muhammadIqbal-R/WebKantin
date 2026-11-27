@@ -1,9 +1,28 @@
 import { z } from 'zod';
 import { IdSchema, NameSchema, TimestampSchema, VersionSchema, PaginationQuerySchema, HttpsUrlSchema } from './common.js';
-import { CreateMenuRequestSchema, MenuSchema, TenantSchema, UpdateMenuRequestSchema, UpdateTenantRequestSchema } from './catalog.js';
+import { CreateMenuRequestSchema, MenuInputSchema, MenuSchema, TenantSchema, UpdateMenuRequestSchema, UpdateTenantRequestSchema } from './catalog.js';
 
 export const StockSchema = z.number().int().min(0).max(1_000_000);
-export const MenuCategorySchema = z.enum(['Makanan', 'Minuman', 'Camilan']);
+export const DEFAULT_MENU_CATEGORIES = ['Makanan', 'Minuman', 'Camilan'] as const;
+export const MAX_MENU_CATEGORY_LENGTH = 40;
+export const MenuCategorySchema = z.string().trim().min(1).max(MAX_MENU_CATEGORY_LENGTH).regex(/^[^\p{Cc}]+$/u);
+export const MenuPriceInputSchema = z.string().trim()
+  .regex(/^(?:[0-9]+|[1-9][0-9]{0,2}(?:\.[0-9]{3})+)$/)
+  .transform(value => Number(value.replaceAll('.', '')))
+  .pipe(MenuInputSchema.shape.price);
+
+export function menuCategoryKey(label: string) {
+  return label.toLocaleLowerCase('id');
+}
+
+export function collectMenuCategories(labels: Iterable<string>) {
+  const categories = new Map<string, string>();
+  for (const label of labels) {
+    const key = menuCategoryKey(label);
+    if (!categories.has(key)) categories.set(key, label);
+  }
+  return categories;
+}
 const metadata = { category: MenuCategorySchema, description: z.string().trim().max(250) };
 export const ManagedMenuSchema = MenuSchema.extend({ ...metadata, stock: StockSchema, stock_version: VersionSchema });
 export const ManagedMenuCreateSchema = CreateMenuRequestSchema.extend({ ...metadata, stock: StockSchema });

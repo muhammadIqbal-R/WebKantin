@@ -2033,6 +2033,7 @@ h1,h2,h3 {
 }
 .menu-categories button {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: var(--s2);
   padding: var(--s3) 0;
@@ -2469,8 +2470,7 @@ h1,h2,h3 {
   gap: var(--s6) var(--s4)
 }
 .menu-categories {
-  gap: var(--s1);
-  justify-content: space-between
+  gap: var(--s3)
 }
 .menu-categories button {
   font-size: var(--text-tab);

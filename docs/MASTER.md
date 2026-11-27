@@ -2,7 +2,7 @@
 
 **Status:** draft  
 **Pemilik:** Lead Full-Stack Engineer / Software Architect; persetujuan oleh pemilik produk  
-**Terakhir diperbarui:** 2026-11-26
+**Terakhir diperbarui:** 2026-11-27
 **Milestone aktif:** revisi vendor: pilih tenant, katalog, akun staf, order persisten/QRIS manual, reservasi stok dan kode Realtime/notifikasi. Implementasi lokal diuji; pemasangan SQL/deploy/UAT Supabase live belum dilakukan agen.
 
 ## 1. Otoritas dan ruang lingkup
@@ -280,6 +280,7 @@ Estimasi PRD ±10 minggu untuk satu developer; bukan janji jadwal baru.
 
 | Tanggal | Perubahan/konflik | Penyelesaian |
 |---|---|---|
+| 2026-11-27 | Pengguna melaporkan harga bertitik tersimpan sebagai nominal kecil dan meminta kategori menu per tenant | F-07 menerima angka Rupiah dengan titik pemisah ribuan. F-01 menampilkan kategori dari menu tenant yang sedang dibuka. |
 | 2026-11-25 | Pengguna meminta nomor meja, catatan pengambilan, dan pembaruan stok katalog | F-01 dan F-02. Stok dibaca lewat Express. Keterangan pengambilan tersimpan privat per order. |
 | 2026-11-25 | Pengguna meminta reset password, notifikasi chat, pembatalan otomatis, dan refund | F-09, F-10, F-02/F-08, dan F-11. Refund dicatat di web sebagai transaksi manual melalui tenant. |
 | 2026-11-24 | Pengguna meminta pelanggan bisa membalas pesan tenant | F-10 mengganti batas tanpa chat. Percakapan melekat pada order yang sudah ada. Pesan dibaca dan dikirim melalui Express. |

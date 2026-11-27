@@ -41,3 +41,7 @@ Periksa ulang label kategori, header HP dan tabel karena lebar huruf berubah.
 Stok diperbarui di belakang layar pada beranda tenant, daftar menu, dan
 checkout. Pertahankan posisi layar, pencarian, dan input saat pembaruan.
 Jika gagal, tampilkan satu pemberitahuan kecil dengan tindakan Coba lagi.
+
+Filter kategori memuat Semua dan kategori dari menu tenant yang dibuka.
+Jika banyak kategori, baris filter bisa digeser mendatar dan tombol tetap
+dapat difokuskan lewat keyboard. Nama kategori panjang tetap terbaca.

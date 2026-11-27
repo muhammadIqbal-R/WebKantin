@@ -1,6 +1,6 @@
-import { OrderDetailResponseSchema, type Menu, type Order, type OrderItem, type Tenant } from '@kantin/shared';
+import { OrderDetailResponseSchema, type ManagedMenu, type Menu, type Order, type OrderItem, type Tenant } from '@kantin/shared';
 
-export type Category = 'Makanan' | 'Minuman' | 'Camilan';
+export type Category = ManagedMenu['category'];
 export type DemoMenu = Menu & { category: Category; description: string; image: string; popular: boolean; spicy: boolean; stock?:number };
 export type DemoTenant = Tenant & { email: string; tagline: string };
 export type DemoOrder = { order: Order; items: OrderItem[]; rejectionReason?: string };

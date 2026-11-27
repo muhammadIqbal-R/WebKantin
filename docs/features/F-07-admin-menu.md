@@ -1,7 +1,7 @@
 # F-07 · Manajemen Menu dan Media
 **Status:** draft
 **Pemilik:** Lead Full-Stack Engineer
-**Terakhir diperbarui:** 2026-11-20
+**Terakhir diperbarui:** 2026-11-27
 **Terkait:** F-01, F-06, SEC-02
 
 Istilah mengikuti [MASTER](../MASTER.md); detail ini merupakan kontrak rencana, belum endpoint aktif.
@@ -23,6 +23,12 @@ Revisi onboarding: form menu berada di dalam halaman tenant yang dipilih, dengan
 Happy path: login → list scope tenant → buat/edit menu → upload foto lewat API jika ada → simpan URL asset → invalidate katalog.
 Edge: upload gagal tidak menimpa foto lama; menu nonaktif tidak menerima order baru; perubahan harga tidak mengubah order_items snapshot; percobaan tenant_id asing ditolak; foto kosong menggunakan placeholder.
 
+Revisi 27 November: saat menambah atau mengedit menu, pilih kategori bawaan
+atau kategori yang sudah dipakai tenant tersebut. Pilih Tambah kategori untuk
+menyimpan nama baru bersama menu. Harga dapat diketik sebagai `20000` atau
+`20.000`. Form menampilkan nominal Rupiah sebelum simpan dan menolak format
+yang tidak valid sebelum upload foto atau mutasi.
+
 ## 4. Kontrak API (endpoint, request, response)
 
 Revisi implementasi 2026-11-20: ManagedMenuCreateSchema/ManagedMenuPatchSchema/ManagedMenuSchema serta StockUpdateSchema sesuai [pengelolaan operasional](../staff-management.md). Stok integer per menu, pembaruan versi optimistis, stok nol otomatis Habis. Kategori/deskripsi disimpan DB; upload media dan checkout otomatis masih lingkup lanjutan.
@@ -41,6 +47,11 @@ Keputusan pengguna 20 November 2026: pengisian ulang stok dilakukan manual, tanp
 
 Harga integer Rupiah >0. Tenant_id tidak dapat dipindah lewat PATCH. Create menyertakan tenant_id tetapi API mencocokkan users scope; admin memilih tenant secara eksplisit. DELETE menonaktifkan, bukan menghapus history. Foto JPEG/PNG/WebP ≤2 MiB. QRIS dan denah hanya admin; foto menu tenant sendiri/admin. API hanya mengaitkan asset sesuai purpose/owner bucket, tidak menerima arbitrary HTTPS sebagai bukti ownership.
 
+Kategori adalah label per menu sepanjang 1–40 karakter. Input harga
+berformat dibaca di form. Kontrak API tetap menerima angka Rupiah bulat
+melalui `ManagedMenuCreateSchema` dan `ManagedMenuPatchSchema`. Harga yang
+sudah tersimpan perlu dikoreksi per menu setelah konfirmasi nominal.
+
 ## 7. Kriteria Terima
 
 Menu tenant awal dapat dikelola sebelum tenant lain ada. Setelah admin menambah tenant berikutnya, menu baru mempunyai scope tenant baru dan tidak bercampur dengan menu tenant awal. CRUD menu terisolasi; foto invalid ditolak; status unavailable membuat tombol katalog disabled; perubahan terlihat setelah invalidasi tanpa refresh manual penuh; harga order lama tetap.
@@ -56,6 +67,11 @@ Zod strict, API filters + RLS, asset path dibuat server acak dan tenant-scoped, 
 ## 10. Test Plan
 
 Kontrak: harga negatif/pecahan, unknown key, patch kosong. Integrasi: CRUD menu tenant awal, penambahan menu tenant baru via admin, fixture tenant A/B IDOR, spoof tenant_id/URL, soft delete dengan order lama, cache invalidation. Upload: MIME palsu, SVG/polyglot, >2 MiB, banyak file, path traversal, image pixel bomb.
+
+Regresi harga: `20000` dan `20.000` dikirim sebagai 20000. Tolak angka
+desimal, pemisah ribuan yang salah, dan nilai di luar batas. Periksa
+penambahan serta pengeditan kategori di menu tenant dan penolakan mutasi
+kategori menu tenant lain.
 
 Implementasi database: [SQL dan panduan pemasangan](../../infra/supabase/README.md),
 [mapping data](../data-model.md), dan [24 tes lokal](../database-validation.md).

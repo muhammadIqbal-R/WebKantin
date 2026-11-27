@@ -36,13 +36,13 @@ test('onboarding HTTP: draft tenant, scoped menu/photo/stock, QRIS, activation a
     const png=await sharp({create:{width:32,height:32,channels:3,background:'white'}}).png().toBuffer();
     async function upload(purpose){const body=new FormData();body.append('file',new Blob([png],{type:'image/png'}),'test.png');const response=await call('/api/admin/uploads?purpose='+purpose+'&owner_id='+tenant.id,'POST',body);assert.equal(response.status,201);return (await response.json()).asset_url;}
     const photo=await upload('menu_photo');
-    const input={tenant_id:tenant.id,name:'Nasi Ayam',price:18000,category:'Makanan',description:'Nasi dan ayam',stock:12,is_available:true,photo_url:photo};
+    const input={tenant_id:tenant.id,name:'Nasi Ayam',price:20000,category:'Ayam',description:'Nasi dan ayam',stock:12,is_available:true,photo_url:photo};
     assert.equal((await call('/api/admin/menus','POST',{...input,photo_url:photo.replace(tenant.id,randomUUID())})).status,400);
     const menu=await call('/api/admin/menus','POST',input);assert.equal(menu.status,201);assert.equal((await menu.json()).data.stock,12);
     const qris=await upload('tenant_qris');assert.equal((await call('/api/admin/tenants/'+tenant.id,'PATCH',{qris_image_url:qris,qris_merchant_name:'Kedai Baru'})).status,200);
     assert.equal((await call('/api/admin/tenants/'+tenant.id,'PATCH',{is_active:true})).status,200);
     const catalog=(await (await call('/api/tenants','GET',undefined,true)).json()).data;assert.equal(catalog[0].id,tenant.id);assert.equal(catalog[0].qris_image_url,null);
-    const products=(await (await call('/api/tenants/'+tenant.id+'/menus','GET',undefined,true)).json()).data;assert.equal(products[0].photo_url,photo);assert.equal(products[0].category,'Makanan');assert.equal(products[0].stock,12);
+    const products=(await (await call('/api/tenants/'+tenant.id+'/menus','GET',undefined,true)).json()).data;assert.equal(products[0].photo_url,photo);assert.equal(products[0].category,'Ayam');assert.equal(products[0].price,20000);assert.equal(products[0].stock,12);
   }finally{await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
 });
 

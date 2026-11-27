@@ -16,6 +16,7 @@ before(async()=>{
     await sql.query("INSERT INTO app_private.users(id,email,role,tenant_id) VALUES($1,'admin@example.test','admin_pengelola',NULL),($2,'a@example.test','tenant',$4),($3,'b@example.test','tenant',$5)",[admin,tenantA,tenantB,A,B]);
     await sql.query("INSERT INTO public.menus(id,tenant_id,name,price,stock,is_available) VALUES($1,$2,'Menu A',10000,5,true),($3,$4,'Menu B',12000,3,true)",[menuA,A,menuB,B]);
   });
+  await db.exec(await readSql(new URL('../prisma/migrations/202611270001_menu_categories/migration.sql',import.meta.url)));
 });
 after(async()=>{await db?.close();});
 test('upgrade preserves RLS and history, existing inventory starts empty and unavailable',async()=>{
@@ -30,6 +31,20 @@ test('tenant A cannot see or change tenant B stock and cannot create tenants',as
     assert.equal((await sql.query('UPDATE public.menus SET stock=50 WHERE id=$1 RETURNING id',[menuB])).rows.length,0);
   });
   await assert.rejects(()=>transact(db,'api',ctx(tenantA),sql=>sql.query("INSERT INTO public.tenants(outlet_id,name) SELECT outlet_id,'Foreign' FROM public.tenants WHERE id=$1",[A])),error=>error.code==='42501');
+});
+test('menu category upgrade preserves prices and scopes custom categories to the menu tenant', async () => {
+  await transact(db, 'api', ctx(tenantA), async sql => {
+    const before = (await sql.query('SELECT category, price FROM public.menus WHERE id=$1',[menuA])).rows[0];
+    assert.deepEqual(before, { category: 'Makanan', price: 10000 });
+    const updated = (await sql.query('UPDATE public.menus SET category=$2 WHERE id=$1 RETURNING category, price',
+      [menuA,'Ayam dan Bebek Bumbu Tradisional'])).rows[0];
+    assert.deepEqual(updated, { category: 'Ayam dan Bebek Bumbu Tradisional', price: 10000 });
+    assert.equal((await sql.query("UPDATE public.menus SET category='Ayam' WHERE id=$1 RETURNING id",[menuB])).rows.length,0);
+  });
+  for (const invalid of ['', ' Ayam ', 'Ayam\nBebek']) {
+    await assert.rejects(() => transact(db, 'api', ctx(tenantA), sql =>
+      sql.query('UPDATE public.menus SET category=$2 WHERE id=$1',[menuA,invalid])), error => error.code === '23514');
+  }
 });
 test('stock update is versioned; a second stale writer changes nothing; zero forces unavailable',async()=>{
   await transact(db,'api',ctx(tenantA),async sql=>{

@@ -83,7 +83,7 @@ model Menu {
   price Int
   stock Int @default(0)
   stockVersion Int @default(1) @map("stock_version")
-  category String @default("Makanan") @db.VarChar(20)
+  category String @default("Makanan") @db.VarChar(40)
   description String @default("") @db.VarChar(250)
   photoUrl String? @map("photo_url") @db.VarChar(2048)
   isAvailable Boolean @default(true) @map("is_available")

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { collectMenuCategories, menuCategoryKey } from '@kantin/shared';
 import { Badge, Button, EmptyState, FoodPhoto, Modal, Plus, Search, ChevronLeft, Store, formatMoney } from '@kantin/ui';
 import { useDemo, type DemoMenu } from '@kantin/ui/demo';
 import { Cart, Quantity } from './cart';
@@ -13,12 +14,15 @@ function unavailableLabel(menu: DemoMenu) {
 export function TenantMenu({ tenantId }: { tenantId:string }) {
   const { menus, tenants, cart, changeQuantity } = useDemo();
   const [query,setQuery] = useState('');
-  const [category,setCategory] = useState('Semua');
+  const [category,setCategory] = useState<string|null>(null);
   const [detailId,setDetailId] = useState<string|null>(null);
   const tenant = tenants.find(item => item.id === tenantId && item.is_active);
   const items = menus.filter(menu => menu.tenant_id === tenant?.id && menu.is_active);
+  const categories = collectMenuCategories(items.map(menu => menu.category));
+  const activeCategory = category !== null && categories.has(category) ? category : null;
+  const categoryOptions = [...categories].sort(([, left], [, right]) => left.localeCompare(right, 'id'));
   const detail = items.find(menu => menu.id === detailId);
-  const filtered = items.filter(menu => (category === 'Semua' || menu.category === category)
+  const filtered = items.filter(menu => (activeCategory === null || menuCategoryKey(menu.category) === activeCategory)
     && menu.name.toLocaleLowerCase('id').includes(query.toLocaleLowerCase('id')));
 
   if (!tenant) return <section className="panel">
@@ -33,9 +37,14 @@ export function TenantMenu({ tenantId }: { tenantId:string }) {
       <section>
         <div className="search-field catalog-search"><Search /><input className="input" aria-label="Cari menu"
           placeholder="Cari menu" value={query} onChange={event => setQuery(event.target.value)} /></div>
-        <div className="menu-categories">{['Semua','Makanan','Minuman','Camilan'].map(value =>
-          <button key={value} className={value === category ? 'active' : ''} onClick={() => setCategory(value)}>{value}</button>,
-        )}</div>
+        {categoryOptions.length > 0 && <div className="menu-categories" role="group" aria-label="Filter kategori menu">
+          <button type="button" className={activeCategory === null ? 'active' : ''} aria-pressed={activeCategory === null}
+            onClick={() => setCategory(null)}>Semua</button>
+          {categoryOptions.map(([key, label]) =>
+            <button key={key} type="button" className={activeCategory === key ? 'active' : ''} aria-pressed={activeCategory === key}
+              onClick={() => setCategory(key)}>{label}</button>,
+          )}
+        </div>}
         <div className="menu-list-heading"><h2>Menu</h2><span className="small muted">{filtered.length} pilihan</span></div>
         {filtered.length ? <div className="menu-list">{filtered.map((menu,index) =>
           <article className={'menu-row ' + (!menu.is_available ? 'unavailable' : '')} key={menu.id}>

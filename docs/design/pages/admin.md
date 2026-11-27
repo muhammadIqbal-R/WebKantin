@@ -47,3 +47,9 @@ Tujuan mengikuti struktur panel dan tetap jelas saat tautan dibuka langsung.
 
 Detail pesanan menampilkan nomor meja dan catatan untuk tenant di dekat jenis
 pesanan, sebelum daftar item. Bagian muncul saat ada keterangan.
+
+Form Tambah menu dan Edit menu memakai input harga dengan papan ketik angka.
+Di bawah harga, tampilkan contoh saat kosong dan nominal Rupiah saat format
+valid. Pilihan kategori berisi kategori bawaan serta kategori dari menu tenant
+yang dipilih. Opsi Tambah kategori menampilkan input nama. Form dan dialog
+menggunakan kontrol, jarak, dan state kesalahan yang sudah ada.

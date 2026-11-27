@@ -1,7 +1,7 @@
 # F-01 · Katalog Tenant dan Menu
 **Status:** draft
 **Pemilik:** Lead Full-Stack Engineer
-**Terakhir diperbarui:** 2026-11-25
+**Terakhir diperbarui:** 2026-11-27
 **Terkait:** F-02, F-05, F-07, DESIGN-01, SEC-02
 
 Istilah mengikuti [MASTER](../MASTER.md); detail ini merupakan kontrak rencana, belum endpoint aktif.
@@ -20,6 +20,11 @@ Sebagai pemesan, saya dapat memilih tenant, melihat foto/harga/menu tersedia, da
 
 Vendor 21 November: beranda memilih tenant dahulu; menu ada di `/tenant/:id`, tanpa auto memilih tenant pertama. Harga/menu awal sesuai [vendor launch](../vendor-launch.md).
 
+Revisi 27 November: filter kategori dibentuk dari menu aktif tenant yang
+sedang dibuka. Kategori dengan perbedaan kapital saja berbagi satu filter.
+Jika kategori terpilih sudah tidak ada, tampilkan kembali semua menu tenant.
+Pencarian nama tetap dapat dipakai bersama filter kategori.
+
 Revisi 25 November: katalog dan checkout yang terlihat memeriksa stok kira-kira
 setiap 15 detik dan saat tab kembali aktif. Refresh ringan hanya membawa data
 stok dari menu aktif. Label Habis dan tombol tambah mengikuti stok terbaru.
@@ -34,7 +39,7 @@ Edge: belum ada tenant/menu → empty state; menu tidak tersedia tetap tampil di
 ## 4. Kontrak API (endpoint, request, response)
 
 `GET /api/tenants?outlet_id=<uuid>&limit=20&cursor=<uuid>` publik. Query TenantListQuerySchema → 200 TenantListResponseSchema.
-`GET /api/tenants/:tenant_id/menus?limit=20&cursor=<uuid>` publik. Params TenantParamsSchema + query PaginationQuerySchema → 200 MenuListResponseSchema.
+`GET /api/tenants/:tenant_id/menus?limit=20&cursor=<uuid>` publik. Params TenantParamsSchema + query PaginationQuerySchema → 200 ManagedMenusResponseSchema dengan kategori nama teks dari menu tenant.
 `GET /api/catalog/stock?limit=100&cursor=<uuid>` menggunakan PaginationQuerySchema
 dan mengembalikan CatalogStockResponseSchema (ID, stok, dan ketersediaan).
 400 input salah; 404 tenant tidak aktif/tidak ada; 429 rate limit; 500 error aman. Format error mengikuti [konvensi API](../api-conventions.md).
@@ -62,6 +67,10 @@ Endpoint publik dibatasi awal 60 req/menit/IP (ditinjau saat load test). Query/p
 ## 10. Test Plan
 
 Kontrak: UUID/query invalid → 400. Integrasi: nol/satu/beberapa tenant, tenant aktif/nonaktif, tenant baru dari admin, isolasi tenant, pagination stabil. UI: pindah tab cepat, lazy image, empty/error/disabled; tes akses keyboard.
+
+Filter kategori: Ayam di tenant A dan Dessert di tenant B hanya muncul pada
+katalog masing-masing. Periksa kombinasi filter dan pencarian serta label
+kategori yang panjang pada layar sempit.
 
 Implementasi database: [SQL dan panduan pemasangan](../../infra/supabase/README.md),
 [mapping data](../data-model.md), dan [24 tes lokal](../database-validation.md).

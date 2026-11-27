@@ -38,4 +38,8 @@ const proofUpgrade = await readFile(path.join(root,'apps/api/prisma/migrations/2
 const proofTarget = path.join(root,'infra/supabase/tenant-payment-proofs-upgrade.sql');
 if (process.argv.includes('--check')) assert.equal(await readFile(proofTarget,'utf8'),proofUpgrade,'Tenant payment proof upgrade is stale; run pnpm db:bundle');
 else await writeFile(proofTarget,proofUpgrade);
+const categoryUpgrade = await readFile(path.join(root,'apps/api/prisma/migrations/202611270001_menu_categories/migration.sql'),'utf8');
+const categoryTarget = path.join(root,'infra/supabase/menu-categories-upgrade.sql');
+if(process.argv.includes('--check')) assert.equal(await readFile(categoryTarget,'utf8'),categoryUpgrade,'Menu category upgrade is stale; run pnpm db:bundle');
+else await writeFile(categoryTarget,categoryUpgrade);
 
